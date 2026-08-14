@@ -1,0 +1,407 @@
+/* PARTY BOX — one sheet, two screens.
+   The TV is read from ten feet away; the phone is read at arm's length.
+   Everything below is sized for one of those two distances. */
+
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap');
+
+:root {
+  --ink: #14102e;
+  --ink-deep: #0b0820;
+  --ink-lift: #221b4a;
+  --amber: #ffc64a;
+  --coral: #ff5e7a;
+  --mint: #45e0b0;
+  --paper: #f6f0e4;
+  --muted: #9a92c4;
+
+  --display: 'Bricolage Grotesque', 'Arial Black', system-ui, sans-serif;
+  --body: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--ink-deep);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% -10%, #2e2266 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 90% 100%, #3a1a44 0%, transparent 70%);
+  background-attachment: fixed;
+  color: var(--paper);
+  font-family: var(--body);
+  min-height: 100vh;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, .display { font-family: var(--display); font-weight: 800; letter-spacing: -0.02em; }
+
+.eyebrow {
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+button {
+  font-family: var(--body);
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  border-radius: 14px;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+button:active { transform: scale(0.97); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
+
+/* ========================================================================
+   THE SIGNATURE: the room code, as four lit tiles
+   ======================================================================== */
+.code-tiles { display: flex; gap: 0.6rem; justify-content: center; }
+.code-tiles span {
+  font-family: var(--display);
+  font-weight: 800;
+  background: var(--ink-lift);
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: var(--amber);
+  box-shadow: inset 0 0 0 2px rgba(255, 198, 74, 0.25), 0 0 40px rgba(255, 198, 74, 0.12);
+  animation: tile-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) backwards;
+}
+.code-tiles span:nth-child(2) { animation-delay: 0.06s; }
+.code-tiles span:nth-child(3) { animation-delay: 0.12s; }
+.code-tiles span:nth-child(4) { animation-delay: 0.18s; }
+@keyframes tile-in { from { opacity: 0; transform: translateY(14px) scale(0.9); } }
+
+/* ========================================================================
+   TV SCREEN
+   ======================================================================== */
+/* Reconnecting banner — pinned to the top of either screen. Only visible while
+   the socket is actually down, so a blip is legible without wiping the game. */
+.linkbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  background: var(--coral);
+  color: #2a0713;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  letter-spacing: 0.02em;
+}
+
+.tv {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 3.5vh 4vw;
+  gap: 3vh;
+}
+.tv-head { display: flex; justify-content: space-between; align-items: center; }
+.tv-head .wordmark { font-family: var(--display); font-size: 1.4rem; color: var(--paper); }
+.tv-head .wordmark b { color: var(--coral); }
+.head-right { display: flex; align-items: center; gap: 1.4rem; }
+
+/* Countdown badge on the TV — a big lit number, top right */
+.timer {
+  display: grid;
+  place-items: center;
+  width: clamp(56px, 5vw, 84px);
+  height: clamp(56px, 5vw, 84px);
+  border-radius: 50%;
+  background: var(--ink-lift);
+  box-shadow: inset 0 0 0 3px var(--mint);
+  transition: box-shadow 0.3s ease, background 0.3s ease;
+}
+.timer .timer-num {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(1.6rem, 2.6vw, 2.6rem);
+  color: var(--mint);
+  font-variant-numeric: tabular-nums;
+}
+.timer.urgent {
+  background: rgba(255, 94, 122, 0.18);
+  box-shadow: inset 0 0 0 3px var(--coral), 0 0 30px rgba(255, 94, 122, 0.4);
+  animation: pulse 0.7s ease-in-out infinite;
+}
+.timer.urgent .timer-num { color: var(--coral); }
+@keyframes pulse { 50% { transform: scale(1.08); } }
+
+/* Lobby: join instructions beside the QR code */
+.lobby-grid {
+  display: flex;
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.qr-block { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.qr {
+  width: clamp(180px, 20vw, 300px);
+  height: auto;
+  border-radius: 20px;
+  padding: 14px;
+  background: var(--paper);
+  box-shadow: 0 0 50px rgba(69, 224, 176, 0.15);
+  animation: pop 0.4s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
+}
+.tv-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4vh; }
+
+.join-block { text-align: center; display: flex; flex-direction: column; gap: 2vh; align-items: center; }
+.join-block .url {
+  font-family: var(--display);
+  font-size: clamp(1.6rem, 3.4vw, 3rem);
+  color: var(--paper);
+}
+.join-block .url em { font-style: normal; color: var(--mint); }
+.tv .code-tiles span { width: clamp(80px, 11vw, 150px); height: clamp(96px, 13vw, 180px); font-size: clamp(3.4rem, 8vw, 7rem); }
+
+.roster { display: flex; flex-wrap: wrap; gap: 0.9rem; justify-content: center; }
+.chip {
+  background: var(--ink-lift);
+  border-radius: 999px;
+  padding: 0.65rem 1.4rem;
+  font-size: clamp(1rem, 1.7vw, 1.5rem);
+  font-weight: 600;
+  animation: pop 0.35s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.chip::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.chip.ready::before { background: var(--mint); box-shadow: 0 0 12px var(--mint); }
+.chip .pts { color: var(--amber); font-variant-numeric: tabular-nums; }
+@keyframes pop { from { opacity: 0; transform: scale(0.7); } }
+
+.prompt-card {
+  background: var(--ink-lift);
+  border-radius: 26px;
+  padding: clamp(1.6rem, 4vw, 3.2rem);
+  text-align: center;
+  border-top: 5px solid var(--coral);
+}
+.prompt-card .prompt-text {
+  font-family: var(--display);
+  font-size: clamp(1.7rem, 4.4vw, 4rem);
+  line-height: 1.1;
+}
+
+/* The fill-in-the-blank slot. Reads as an empty line waiting to be filled,
+   which is the whole shape of the joke — so it gets the accent color. */
+.blank {
+  display: inline-block;
+  width: 3.2em;
+  height: 0.12em;
+  background: var(--amber);
+  border-radius: 999px;
+  vertical-align: 0.16em;
+  margin: 0 0.12em;
+  box-shadow: 0 0 18px rgba(255, 198, 74, 0.45);
+}
+.phone .blank {
+  width: 2.6em;
+  height: 0.15em;
+  box-shadow: 0 0 10px rgba(255, 198, 74, 0.4);
+}
+
+.answer-list { display: grid; gap: 1.1rem; }
+.answer-row {
+  background: var(--ink-lift);
+  border-radius: 18px;
+  padding: clamp(0.9rem, 2vw, 1.6rem) clamp(1.1rem, 2.4vw, 2rem);
+  font-size: clamp(1.1rem, 2.4vw, 2.2rem);
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  animation: slide-in 0.4s ease backwards;
+}
+.answer-row .who { font-family: var(--display); color: var(--amber); font-size: 0.7em; white-space: nowrap; }
+.answer-row .votes { color: var(--mint); font-size: 0.7em; text-align: right; }
+@keyframes slide-in { from { opacity: 0; transform: translateX(-18px); } }
+
+.scoreboard { display: grid; gap: 0.9rem; max-width: 900px; margin: 0 auto; width: 100%; }
+.score-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1.2rem;
+  align-items: center;
+  background: var(--ink-lift);
+  border-radius: 18px;
+  padding: 1rem 1.6rem;
+  font-size: clamp(1.1rem, 2.2vw, 2rem);
+}
+.score-row .rank { font-family: var(--display); color: var(--muted); }
+.score-row .pts { font-family: var(--display); color: var(--amber); font-variant-numeric: tabular-nums; }
+.score-row:first-child { box-shadow: inset 0 0 0 2px var(--amber); }
+.score-row:first-child .rank { color: var(--amber); }
+
+.tv-foot { display: flex; justify-content: center; gap: 1rem; }
+.btn-big {
+  background: var(--coral);
+  color: #2a0713;
+  font-size: clamp(1rem, 1.6vw, 1.35rem);
+  padding: 1rem 2.6rem;
+  font-weight: 600;
+}
+.btn-big.ghost { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 2px var(--ink-lift); }
+.hint { text-align: center; color: var(--muted); font-size: clamp(0.9rem, 1.4vw, 1.2rem); }
+
+/* ========================================================================
+   PHONE CONTROLLER
+   ======================================================================== */
+.phone {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 1.6rem 1.3rem 2rem;
+  gap: 1.4rem;
+  max-width: 560px;
+  margin: 0 auto;
+}
+/* Countdown bar pinned to the top of the phone */
+.pbar-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ink-lift);
+  overflow: hidden;
+  margin-bottom: 0.4rem;
+}
+.pbar {
+  height: 100%;
+  width: 100%;
+  background: var(--mint);
+  border-radius: 999px;
+  transition: width 0.12s linear, background 0.3s ease;
+}
+.pbar.urgent { background: var(--coral); }
+
+.phone-head { display: flex; justify-content: space-between; align-items: center; }
+.phone-head .wordmark { font-family: var(--display); font-size: 1.1rem; }
+.phone-head .wordmark b { color: var(--coral); }
+.phone-head .me { font-weight: 600; font-size: 0.9rem; }
+.phone-head .me .pts { color: var(--amber); }
+
+.phone-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 1.2rem; }
+
+.field { display: flex; flex-direction: column; gap: 0.5rem; }
+.field label { font-size: 0.8rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+input, textarea {
+  font-family: var(--body);
+  font-size: 1.15rem;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  border: 2px solid var(--ink-lift);
+  background: var(--ink);
+  color: var(--paper);
+  width: 100%;
+  resize: none;
+}
+input:focus, textarea:focus { border-color: var(--mint); outline: none; }
+input.code-input {
+  font-family: var(--display);
+  font-size: 2.4rem;
+  text-align: center;
+  letter-spacing: 0.35em;
+  text-indent: 0.35em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+/* Seed chips — raw material, deliberately quieter than the input above them so
+   they read as optional. Confident writers should be able to ignore them. */
+.seeds { display: grid; gap: 0.5rem; }
+.seed-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.seed {
+  background: transparent;
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1.5px var(--ink-lift);
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: left;
+}
+.seed:hover { color: var(--paper); box-shadow: inset 0 0 0 1.5px var(--amber); }
+.seed.used { color: var(--amber); box-shadow: inset 0 0 0 1.5px var(--amber); }
+
+.hint-sm { font-size: 0.8rem; color: var(--muted); text-align: center; }
+
+.btn-go {
+  background: var(--mint);
+  color: #06251b;
+  font-size: 1.15rem;
+  padding: 1.1rem;
+  width: 100%;
+}
+.btn-vote {
+  background: var(--ink-lift);
+  color: var(--paper);
+  font-size: 1.05rem;
+  padding: 1.1rem 1.2rem;
+  width: 100%;
+  text-align: left;
+  line-height: 1.35;
+  box-shadow: inset 0 0 0 2px transparent;
+}
+.btn-vote:hover:not(:disabled) { box-shadow: inset 0 0 0 2px var(--coral); }
+.vote-list { display: grid; gap: 0.7rem; }
+
+.phone .prompt-text { font-family: var(--display); font-size: 1.5rem; line-height: 1.15; }
+.status {
+  text-align: center;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.status strong { color: var(--paper); display: block; font-family: var(--display); font-size: 1.4rem; margin-bottom: 0.4rem; }
+.error { color: var(--coral); font-size: 0.95rem; min-height: 1.2em; }
+
+.waiting-dots::after {
+  content: '';
+  animation: dots 1.4s steps(4, end) infinite;
+}
+@keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Setup question: the stem sits inline before the input so the player is
+   visibly completing a sentence rather than starting one. That's what keeps
+   their answer in a shape the prompt frames can actually use. */
+.stem-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  background: var(--ink);
+  border: 2px solid var(--ink-lift);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+}
+.stem-field:focus-within { border-color: var(--mint); }
+.stem {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--amber);
+  font-size: 1rem;
+  white-space: nowrap;
+}
+.stem-field input {
+  flex: 1 1 8rem;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 1.05rem;
+}
+.stem-field input:focus { border: none; outline: none; }
+.hint-sm { font-size: 0.82rem; color: var(--muted); line-height: 1.45; }

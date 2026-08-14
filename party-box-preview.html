@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0820">
+<title>Party Box — the deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#14102e; --ink-deep:#0b0820; --ink-lift:#221b4a; --ink-edge:#2f2663;
+  --amber:#ffc64a; --coral:#ff5e7a; --mint:#45e0b0; --paper:#f6f0e4; --muted:#9a92c4;
+  --t-dark:#8b7fff; --t-vice:#ff9a3c; --t-evil:#ff5e7a; --t-cursed:#c65cff;
+  --t-filth:#ff4fa3; --t-family:#ffc64a; --t-tame:#45e0b0;
+  --t-religion:#7fd4ff; --t-politics:#ff8a5c; --t-money:#8fe36b;
+  --display:'Bricolage Grotesque','Arial Black',system-ui,sans-serif;
+  --body:'Instrument Sans',system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--ink-deep);
+  background-image:
+    radial-gradient(ellipse 90% 50% at 50% -5%,#2e2266 0%,transparent 70%),
+    radial-gradient(ellipse 60% 40% at 100% 100%,#3a1a44 0%,transparent 70%);
+  background-attachment:fixed;
+  color:var(--paper);font-family:var(--body);line-height:1.5;
+  -webkit-font-smoothing:antialiased;padding:0 1.15rem 4rem;
+}
+.wrap{max-width:680px;margin:0 auto}
+h1,h2,h3,.display{font-family:var(--display);letter-spacing:-.02em;line-height:1.05}
+.eyebrow{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:600}
+:focus-visible{outline:3px solid var(--mint);outline-offset:3px;border-radius:6px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;background:rgba(255,255,255,.07);padding:.1em .35em;border-radius:4px}
+
+/* the blank — the signature of the whole deck */
+.blank{
+  display:inline-block;width:2.9em;height:.13em;background:var(--amber);
+  border-radius:999px;vertical-align:.18em;margin:0 .1em;
+  box-shadow:0 0 14px rgba(255,198,74,.5);
+}
+
+/* ---------- HERO ---------- */
+.hero{padding:2.6rem 0 1.4rem;text-align:center}
+.wordmark{font-family:var(--display);font-weight:800;font-size:1.15rem}
+.wordmark b{color:var(--coral)}
+.hero h1{font-size:clamp(2.3rem,10.5vw,3.3rem);font-weight:800;margin:1.5rem 0 .55rem}
+.hero h1 em{font-style:normal;color:var(--amber)}
+.hero .sub{color:var(--muted);font-size:1rem;max-width:32ch;margin:0 auto}
+.draw{
+  margin:1.8rem 0 0;background:var(--ink-lift);border-radius:24px;
+  border-top:5px solid var(--coral);padding:1.9rem 1.3rem 1.5rem;
+  min-height:200px;display:flex;flex-direction:column;justify-content:center;gap:1.2rem;
+}
+.draw .label{font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:600}
+#drawText{font-family:var(--display);font-weight:800;font-size:clamp(1.35rem,6.4vw,1.9rem);line-height:1.14}
+#drawText.swap{animation:swap .35s cubic-bezier(.2,1,.4,1)}
+@keyframes swap{from{opacity:0;transform:translateY(10px)}}
+.btn{font-family:var(--body);font-weight:600;border:none;cursor:pointer;border-radius:14px;transition:transform .12s ease}
+.btn:active{transform:scale(.97)}
+.btn-draw{background:var(--mint);color:#06251b;font-size:1rem;padding:.95rem 1.4rem;width:100%}
+
+section{margin-top:3.2rem}
+section > h2{font-size:clamp(1.5rem,6.5vw,2rem);font-weight:800;margin:.35rem 0 1.1rem}
+
+/* ---------- craft notes ---------- */
+.craft{display:grid;gap:.7rem}
+.craft > div{background:var(--ink-lift);border-radius:16px;padding:1rem 1.1rem;font-size:.94rem}
+.craft b{display:block;font-family:var(--display);font-size:1.02rem;margin-bottom:.2rem}
+.craft .vs{margin-top:.6rem;display:grid;gap:.35rem;font-size:.87rem}
+.craft .vs p{padding-left:1.5rem;position:relative;color:var(--muted)}
+.craft .vs p::before{position:absolute;left:0;font-weight:700;font-family:var(--display)}
+.craft .vs .no::before{content:'✕';color:var(--coral)}
+.craft .vs .yes::before{content:'✓';color:var(--mint)}
+.craft .vs .yes{color:var(--paper)}
+
+/* ---------- rules ---------- */
+.steps{list-style:none;display:grid;gap:.75rem;counter-reset:s}
+.steps li{counter-increment:s;background:var(--ink-lift);border-radius:16px;padding:1rem 1.1rem 1rem 3.4rem;position:relative;font-size:.97rem}
+.steps li::before{content:counter(s);position:absolute;left:1rem;top:.95rem;font-family:var(--display);font-weight:800;font-size:1.15rem;color:var(--amber)}
+.steps li b{display:block;font-family:var(--display);font-size:1.05rem;margin-bottom:.15rem}
+.steps .clock{display:inline-block;margin-top:.5rem;font-size:.72rem;font-weight:600;letter-spacing:.06em;color:var(--mint);background:rgba(69,224,176,.12);padding:.25rem .6rem;border-radius:999px}
+
+/* ---------- scoring ---------- */
+.score-card{background:var(--ink-lift);border-radius:20px;padding:1.4rem 1.2rem;display:grid;gap:1.1rem}
+.big-rule{display:flex;align-items:center;gap:1rem}
+.big-rule .num{font-family:var(--display);font-weight:800;font-size:2.9rem;color:var(--amber);line-height:1}
+.big-rule .txt{font-size:.97rem}
+.big-rule .txt b{display:block;font-family:var(--display);font-size:1.05rem}
+.fine{display:grid;gap:.55rem;border-top:1px solid var(--ink-edge);padding-top:1.05rem}
+.fine div{font-size:.92rem;color:var(--muted);padding-left:1.1rem;position:relative}
+.fine div::before{content:'';position:absolute;left:0;top:.62em;width:5px;height:5px;border-radius:50%;background:var(--coral)}
+.fine b{color:var(--paper);font-weight:600}
+.math{background:var(--ink);border-radius:16px;padding:1.1rem;font-size:.9rem;display:grid;gap:.5rem}
+.math .row{display:flex;justify-content:space-between;gap:1rem}
+.math .row span:last-child{font-family:var(--display);font-weight:700;color:var(--amber);white-space:nowrap}
+.math .row.total{border-top:1px solid var(--ink-edge);padding-top:.5rem;margin-top:.15rem}
+.math .row.total span:last-child{color:var(--mint)}
+
+/* ---------- mockups ---------- */
+.screens{display:grid;gap:1.5rem}
+.shot{background:var(--ink-lift);border-radius:20px;overflow:hidden}
+.shot > figcaption{padding:.85rem 1.1rem;font-size:.85rem;color:var(--muted);border-top:1px solid var(--ink-edge)}
+.shot > figcaption b{color:var(--paper);font-family:var(--display);display:block;font-size:.98rem}
+.tvbox{background:var(--ink-deep);padding:1rem;display:grid;gap:.85rem}
+.tvbar{display:flex;justify-content:space-between;align-items:center}
+.tvbar .wm{font-family:var(--display);font-weight:800;font-size:.6rem}
+.tvbar .wm b{color:var(--coral)}
+.tvbar .rnd{font-size:.52rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.dot-timer{width:30px;height:30px;border-radius:50%;background:var(--ink-lift);display:grid;place-items:center;box-shadow:inset 0 0 0 2px var(--mint);font-family:var(--display);font-weight:800;font-size:.82rem;color:var(--mint)}
+.dot-timer.hot{box-shadow:inset 0 0 0 2px var(--coral);color:var(--coral);background:rgba(255,94,122,.15)}
+.tv-prompt{background:var(--ink-lift);border-top:3px solid var(--coral);border-radius:12px;padding:.9rem .8rem;text-align:center;font-family:var(--display);font-weight:800;font-size:.95rem;line-height:1.2}
+.tv-prompt .blank{width:2.4em;height:.14em;box-shadow:0 0 8px rgba(255,198,74,.5)}
+.tv-ans{background:var(--ink-lift);border-radius:9px;padding:.5rem .7rem;font-size:.72rem;display:flex;justify-content:space-between;gap:.6rem;align-items:center}
+.tv-ans .who{font-family:var(--display);color:var(--amber);font-size:.62rem;white-space:nowrap}
+.tv-ans .v{color:var(--mint);font-size:.62rem;white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:.35rem;justify-content:center}
+.chips i{font-style:normal;background:var(--ink-lift);border-radius:999px;padding:.3rem .65rem;font-size:.65rem;font-weight:600;display:flex;align-items:center;gap:.35rem}
+.chips i::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.chips i.on::before{background:var(--mint);box-shadow:0 0 7px var(--mint)}
+.tv-hint{text-align:center;font-size:.6rem;color:var(--muted)}
+.phonebox{background:var(--ink-deep);padding:1rem;display:flex;justify-content:center}
+.phone-frame{width:172px;background:var(--ink);border-radius:20px;padding:.75rem .6rem;box-shadow:inset 0 0 0 2px var(--ink-edge);display:grid;gap:.6rem}
+.pbar-t{height:4px;border-radius:999px;background:var(--ink-lift);overflow:hidden}
+.pbar-f{height:100%;width:62%;background:var(--mint);border-radius:999px}
+.pbar-f.hot{width:14%;background:var(--coral)}
+.ph-head{display:flex;justify-content:space-between;align-items:center;font-size:.5rem}
+.ph-head .wm{font-family:var(--display);font-weight:800}
+.ph-head .wm b{color:var(--coral)}
+.ph-head .me .pts{color:var(--amber)}
+.ph-prompt{font-family:var(--display);font-weight:800;font-size:.72rem;line-height:1.25}
+.ph-prompt .blank{width:2.2em;height:.15em;box-shadow:none}
+.ph-input{background:var(--ink-deep);border:1.5px solid var(--ink-edge);border-radius:8px;padding:.5rem;font-size:.55rem;color:var(--muted);min-height:40px}
+.ph-seeds{display:flex;flex-wrap:wrap;gap:.22rem}
+.ph-seeds i{font-style:normal;font-size:.46rem;color:var(--muted);box-shadow:inset 0 0 0 1px var(--ink-lift);border-radius:999px;padding:.2rem .4rem;line-height:1.1}
+.ph-seeds i.used{color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber)}
+.ph-btn{background:var(--mint);color:#06251b;border-radius:8px;padding:.45rem;text-align:center;font-size:.58rem;font-weight:600}
+.ph-vote{background:var(--ink-lift);border-radius:8px;padding:.45rem .55rem;font-size:.55rem;line-height:1.3}
+.ph-lab{font-size:.48rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* ---------- deck browser ---------- */
+.legend{display:flex;flex-wrap:wrap;gap:.75rem;margin-bottom:1rem;font-size:.76rem;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:.4rem}
+.legend b{width:9px;height:3px;border-radius:2px;display:block}
+.filters{display:flex;gap:.45rem;overflow-x:auto;padding:.15rem .15rem .6rem;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.fbtn{flex:none;background:var(--ink-lift);color:var(--muted);font-size:.82rem;padding:.55rem 1rem;border-radius:999px;white-space:nowrap;font-weight:600}
+.fbtn[aria-pressed="true"]{background:var(--paper);color:var(--ink-deep)}
+.count{font-size:.82rem;color:var(--muted);margin:.15rem 0 .8rem}
+.plist{list-style:none;display:grid;gap:.5rem}
+.plist li{background:var(--ink-lift);border-radius:13px;padding:.8rem .9rem .8rem 1rem;font-size:.95rem;display:flex;gap:.75rem;align-items:flex-start;border-left:3px solid var(--tagc,var(--muted));line-height:1.4}
+.plist li[data-tag="Mortality"],.plist li[data-tag="Medical horror"]{--tagc:var(--t-dark)}
+.plist li[data-tag="Vice"],.plist li[data-tag="Crime"]{--tagc:var(--t-vice)}
+.plist li[data-tag="Corporate evil"]{--tagc:var(--t-evil)}
+.plist li[data-tag="Religion"]{--tagc:var(--t-religion)}
+.plist li[data-tag="Politics"]{--tagc:var(--t-politics)}
+.plist li[data-tag="Money"]{--tagc:var(--t-money)}
+.plist li[data-tag="Family"]{--tagc:var(--t-family)}
+.plist li[data-tag="Cursed"]{--tagc:var(--t-cursed)}
+.plist li[data-tag="Filth"]{--tagc:var(--t-filth)}
+.plist li[data-tag="Tame"]{--tagc:var(--t-tame)}
+.plist .n{font-family:var(--display);font-weight:700;color:var(--muted);font-size:.75rem;padding-top:.22rem;min-width:1.6em}
+
+.note{margin-top:1.2rem;background:rgba(255,198,74,.09);border-radius:14px;padding:1rem 1.1rem;font-size:.9rem;border-left:3px solid var(--amber)}
+.note b{font-family:var(--display)}
+footer{margin-top:3rem;text-align:center;color:var(--muted);font-size:.8rem}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="wordmark">PARTY <b>BOX</b></div>
+    <h1>Fill in the blank.<br><em>Ruin the room.</em></h1>
+    <p class="sub">Everyone answers the same prompt. Nobody knows who wrote what.</p>
+    <div class="draw">
+      <p class="label">Straight from the deck</p>
+      <p id="drawText"></p>
+      <button class="btn btn-draw" id="drawBtn">Draw another</button>
+    </div>
+  </header>
+
+  <section>
+    <p class="eyebrow">Why the deck changed</p>
+    <h2>Built for the biggest reaction</h2>
+    <div class="craft">
+      <div>
+        <b>A blank beats a question</b>
+        A question invites an explanation, and explanations are wordy. A blank
+        forces a single punchy noun — which is where the laugh actually lives.
+        <div class="vs">
+          <p class="no">The real reason the WiFi is down</p>
+          <p class="yes">The vending machine has started dispensing <span class="blank"></span></p>
+        </div>
+      </div>
+      <div>
+        <b>Vivid setup, wide slot</b>
+        The scene should be specific enough to picture instantly, but the blank
+        should accept almost anything. Narrow scenes with wide slots produce the
+        most range between players.
+      </div>
+      <div>
+        <b>Funny before the answer</b>
+        If a prompt doesn't get a reaction the second it hits the TV, it won't
+        rescue a weak answer either. Every prompt has to earn its own laugh first.
+      </div>
+      <div>
+        <b>No obvious right answer</b>
+        If everyone writes the same thing, there's no contest and no vote worth
+        casting. Prompts with one dominant answer got cut.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">The middle ground</p>
+    <h2>Cards vs. a blank box</h2>
+    <div class="craft">
+      <div>
+        <b>Both approaches break differently</b>
+        Cards Against Humanity hands you cards, so nobody freezes — but you can
+        only play what you were dealt. A blank box has no ceiling, and it also
+        strands anyone who isn't a natural writer. In a party that means two
+        people take every vote and everyone else quietly checks out.
+      </div>
+      <div>
+        <b>So: seeds, not answers</b>
+        Five short scraps under your text box. Tap one and it drops in at the
+        cursor. Tap two and they stack. Or write your own and never look at them.
+        The answer stays yours, which keeps the ceiling where it was.
+        <div class="vs">
+          <p class="no">Pick one of these five finished jokes</p>
+          <p class="yes">expired mayonnaise &nbsp;·&nbsp; the HOA &nbsp;·&nbsp; a wet sock</p>
+        </div>
+      </div>
+      <div>
+        <b>Everyone gets a different five</b>
+        Dealt off one shuffled deck, so no two people in a round hold the same
+        scrap. Shared seeds would push everyone toward the same joke — the exact
+        thing they're meant to prevent.
+      </div>
+      <div>
+        <b>Never matched to the prompt</b>
+        That looks like a missed trick and isn't. The laugh comes from collision:
+        "expired mayonnaise" is nothing by itself, but <em>Cause of death:
+        expired mayonnaise</em> is the whole joke.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Prompts about the room</p>
+    <h2>Your own stories, weaponised</h2>
+    <div class="craft">
+      <div>
+        <b>Everyone answers one question first</b>
+        In the lobby, each phone shows a sentence to finish — <em>"the time
+        I…"</em>, <em>"I once got in trouble for…"</em>. Ten seconds, and it's
+        optional.
+      </div>
+      <div>
+        <b>Two rounds use those answers</b>
+        Dropped at random points, so they arrive as a surprise rather than
+        always landing on the same beat.
+        <div class="vs">
+          <p class="no">I got food poisoning at my cousin's wedding</p>
+          <p class="yes">The part Dana leaves out about the time they got food poisoning at a wedding: <span class="blank"></span></p>
+        </div>
+      </div>
+      <div>
+        <b>You only ever supply a story about yourself</b>
+        Never about someone else. Player-writes-about-player turns cruel in
+        about two rounds and doesn't need a game to do it. Self-supplied
+        material stays affectionate — the target handed it over.
+      </div>
+      <div>
+        <b>Opt out any time</b>
+        Anyone can decline to be named and still play everything else, and the
+        host can switch the whole thing off from the lobby.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">How a round works</p>
+    <h2>Three rounds, same shape</h2>
+    <ol class="steps">
+      <li><b>Everyone gets the prompt</b>It shows on the TV. Same one for the whole room.<span class="clock">no clock</span></li>
+      <li><b>Fill in the blank</b>On your phone, in private, with five seeds to borrow if you're stuck. 90 characters, so keep it punchy.<span class="clock">60 seconds</span></li>
+      <li><b>Answers go up anonymously</b>The TV shows every answer with no names attached.<span class="clock">—</span></li>
+      <li><b>Vote for your favorite</b>Tap the one that got you. You can't vote for yourself.<span class="clock">25 seconds</span></li>
+      <li><b>The reveal</b>Names come out, votes get counted, then it rolls into the next round.<span class="clock">12 seconds</span></li>
+    </ol>
+    <div class="note"><b>It runs itself.</b> Every phase is on a timer, so nobody touches the laptop mid-game. If everyone answers early it jumps ahead instead of waiting — and if someone wanders off, the clock moves past them.</div>
+  </section>
+
+  <section>
+    <p class="eyebrow">Scoring</p>
+    <h2>One rule, basically</h2>
+    <div class="score-card">
+      <div class="big-rule">
+        <span class="num">100</span>
+        <span class="txt"><b>points per vote</b>Every person who picks your answer is 100 points to you.</span>
+      </div>
+      <div class="fine">
+        <div>Votes are the <b>only</b> way to score. No points for voting, no bonus for speed.</div>
+        <div>You <b>can't vote for yourself</b> — the game hides your own answer from your list.</div>
+        <div>Miss the clock and you write nothing that round. <b>No answer, no votes, no points.</b></div>
+        <div>Highest total after <b>3 rounds</b> wins. Ties just tie — no tiebreaker.</div>
+      </div>
+      <div class="math">
+        <div class="row"><span>Round 1 — 2 people picked you</span><span>200</span></div>
+        <div class="row"><span>Round 2 — nobody picked you</span><span>0</span></div>
+        <div class="row"><span>Round 3 — 3 people picked you</span><span>300</span></div>
+        <div class="row total"><span>Final</span><span>500</span></div>
+      </div>
+    </div>
+    <div class="note"><b>What this rewards.</b> Writing for the room, not for yourself. The answer that makes five people laugh beats the one that makes you laugh hardest.</div>
+  </section>
+
+  <section>
+    <p class="eyebrow">What it looks like</p>
+    <h2>TV and phone</h2>
+    <div class="screens">
+
+      <figure class="shot">
+        <div class="tvbox">
+          <div class="tvbar"><span class="wm">PARTY <b>BOX</b></span><span class="dot-timer">23</span></div>
+          <p class="tv-prompt">HR wants to see me about <span class="blank"></span>.</p>
+          <div class="chips"><i class="on">Ryle</i><i class="on">Dana</i><i>Mick</i><i class="on">Jo</i></div>
+          <p class="tv-hint">Green means they're in. Mick is still typing.</p>
+        </div>
+        <figcaption><b>Writing</b>The blank glows amber so the shape of the joke reads from the couch.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <div class="tvbox">
+          <div class="tvbar"><span class="wm">PARTY <b>BOX</b></span><span class="dot-timer hot">4</span></div>
+          <p class="tv-prompt">Cause of death: <span class="blank"></span>.</p>
+          <div class="tv-ans"><span>Sheer confidence</span></div>
+          <div class="tv-ans"><span>A dare from a man named Craig</span></div>
+          <div class="tv-ans"><span>Winning an argument</span></div>
+          <p class="tv-hint">No names yet — vote blind.</p>
+        </div>
+        <figcaption><b>Voting</b>Answers go up with nothing attached, so you're judging the joke, not the friend.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <div class="tvbox">
+          <div class="tvbar"><span class="wm">PARTY <b>BOX</b></span><span class="rnd">Round 1 of 3</span></div>
+          <p class="tv-prompt">Cause of death: <span class="blank"></span>.</p>
+          <div class="tv-ans"><span>A dare from a man named Craig</span><span class="who">Dana</span><span class="v">Ryle, Jo</span></div>
+          <div class="tv-ans"><span>Sheer confidence</span><span class="who">Ryle</span><span class="v">Mick</span></div>
+          <div class="tv-ans"><span>Winning an argument</span><span class="who">Jo</span><span class="v">—</span></div>
+        </div>
+        <figcaption><b>Reveal</b>Who wrote it, who fell for it. Dana takes 200 this round.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <div class="phonebox">
+          <div class="phone-frame">
+            <div class="pbar-t"><div class="pbar-f"></div></div>
+            <div class="ph-head"><span class="wm">PARTY <b>BOX</b></span><span class="me">Ryle · <span class="pts">200</span></span></div>
+            <p class="ph-prompt">The part Dana leaves out about the time they missed their own flight: <span class="blank"></span>.</p>
+            <div class="ph-input">expired mayonnaise and</div>
+            <p class="ph-lab">Stuck? Borrow one</p>
+            <div class="ph-seeds">
+              <i class="used">expired mayonnaise</i><i>the HOA</i><i>a wet sock</i><i>geese</i><i>my stepdad</i>
+            </div>
+            <div class="ph-btn">Send it</div>
+          </div>
+        </div>
+        <figcaption><b>Phone — writing</b>Five private seeds sit under the box. Tap one to drop it in, stack two, or ignore them and write your own.</figcaption>
+      </figure>
+
+      <figure class="shot">
+        <div class="phonebox">
+          <div class="phone-frame">
+            <div class="pbar-t"><div class="pbar-f hot"></div></div>
+            <div class="ph-head"><span class="wm">PARTY <b>BOX</b></span><span class="me">Ryle · <span class="pts">200</span></span></div>
+            <p class="ph-lab">Pick your favorite</p>
+            <div class="ph-vote">The other Roomba</div>
+            <div class="ph-vote">Whatever was under the couch since March</div>
+            <div class="ph-vote">Blood, obviously</div>
+          </div>
+        </div>
+        <figcaption><b>Phone — voting</b>Your own answer isn't in the list, so you can't stack your own score.</figcaption>
+      </figure>
+
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">The deck</p>
+    <h2 id="deckHead">The deck</h2>
+    <div class="legend" id="legend"></div>
+    <div class="filters" id="filters" role="group" aria-label="Filter prompts"></div>
+    <p class="count" id="count"></p>
+    <ol class="plist" id="plist"></ol>
+    <div class="note">
+      <b>Swap anything you want.</b> The deck now lives in its own file — <code>prompts.js</code>, sitting next to <code>server.js</code>. Delete a line to cut a prompt, copy a line to add one, keep the quotes and the comma. Use <code>______</code> for the blank.
+    </div>
+    <div class="note">
+      <b>The best upgrade is free.</b> Ten prompts about the people in your actual room will outperform every professionally written line in this deck. <em>"______ is the real reason Mick got banned from the Elks Lodge."</em>
+    </div>
+  </section>
+
+  <footer>Party Box · runs on your laptop, played on phones</footer>
+</div>
+
+<script>
+const PROMPTS = [["Cause of death: ______.", "Mortality"], ["My will specifies that I be buried with ______.", "Mortality"], ["The funeral was going fine until ______.", "Mortality"], ["Turns out the afterlife is just ______.", "Mortality"], ["Grandma's last words were ______.", "Mortality"], ["They found ______ in the walls.", "Mortality"], ["The hospice nurse has seen everything except ______.", "Mortality"], ["My headstone will read ______.", "Mortality"], ["The coroner noted one unusual detail: ______.", "Mortality"], ["I want my ashes scattered over ______.", "Mortality"], ["The obituary politely omitted ______.", "Mortality"], ["The eulogy went off the rails at ______.", "Mortality"], ["They pulled the plug over ______.", "Mortality"], ["The life insurance claim was denied because of ______.", "Mortality"], ["The surgeon paused, looked at me, and said ______.", "Medical horror"], ["Worst thing to hear while you're going under: ______.", "Medical horror"], ["The test results came back positive for ______.", "Medical horror"], ["My therapist stopped taking notes when I mentioned ______.", "Medical horror"], ["The pharmacist gave me a very long look about ______.", "Medical horror"], ["New side effects include ______.", "Medical horror"], ["The rash is spreading and it now resembles ______.", "Medical horror"], ["The waiver I signed mentioned ______.", "Medical horror"], ["The specialist has never seen ______ before.", "Medical horror"], ["They found ______ on the X-ray.", "Medical horror"], ["The anesthesia wore off during ______.", "Medical horror"], ["My chart has one note that just says ______.", "Medical horror"], ["The clinical trial's control group got ______.", "Medical horror"], ["Blackout me is out there right now doing ______.", "Vice"], ["The bartender cut me off after I ______.", "Vice"], ["My dealer has started offering ______.", "Vice"], ["Rehab was going great until someone smuggled in ______.", "Vice"], ["Vegas was a mistake, and the mistake was ______.", "Vice"], ["I've replaced my entire personality with ______.", "Vice"], ["The hangover was bad, but the ______ was worse.", "Vice"], ["The bender ended at ______.", "Vice"], ["I quit everything except ______.", "Vice"], ["Last night's group chat is entirely ______.", "Vice"], ["My sponsor doesn't know about ______.", "Vice"], ["The bet started as ______.", "Vice"], ["Somebody spiked the punch with ______.", "Vice"], ["The tab included ______.", "Vice"], ["I only commit light crimes, like ______.", "Crime"], ["The judge added six months for ______.", "Crime"], ["Prison would honestly be fine if not for ______.", "Crime"], ["The bouncer threw me out for ______.", "Crime"], ["The court has ordered me to attend classes about ______.", "Crime"], ["The cop let me off with a warning about ______.", "Crime"], ["My alibi is ______, and I'm sticking to it.", "Crime"], ["The heist fell apart because of ______.", "Crime"], ["The getaway was delayed by ______.", "Crime"], ["The evidence locker holds ______.", "Crime"], ["The witness described the suspect as ______.", "Crime"], ["The plea deal hinged on ______.", "Crime"], ["The security footage shows ______.", "Crime"], ["The stolen goods turned out to be ______.", "Crime"], ["HR wants to see me about ______.", "Corporate evil"], ["The employee handbook now has a full page on ______.", "Corporate evil"], ["Our new company value is ______.", "Corporate evil"], ["The terms of service quietly added ______.", "Corporate evil"], ["The billionaire's bunker is stocked entirely with ______.", "Corporate evil"], ["The airline now charges extra for ______.", "Corporate evil"], ["We're not doing layoffs, we're doing ______.", "Corporate evil"], ["The team-building exercise was just ______.", "Corporate evil"], ["The CEO's apology video mentioned ______ eleven times.", "Corporate evil"], ["The all-hands ended with ______.", "Corporate evil"], ["The performance review flagged ______.", "Corporate evil"], ["Our disruptive innovation is just ______.", "Corporate evil"], ["The intern discovered ______.", "Corporate evil"], ["The merger was blocked over ______.", "Corporate evil"], ["The eleventh commandment: ______.", "Religion"], ["The confession booth has heard it all, except ______.", "Religion"], ["Heaven's entrance exam has exactly one question about ______.", "Religion"], ["The megachurch pastor's private jet is full of ______.", "Religion"], ["God's actual reason for the flood: ______.", "Religion"], ["The doomsday cult was right about everything except ______.", "Religion"], ["The exorcist gave up when the demon requested ______.", "Religion"], ["The tithe went straight to ______.", "Religion"], ["The road to hell is paved with ______.", "Religion"], ["St. Peter's clipboard has one red flag: ______.", "Religion"], ["Sunday school skipped the part about ______.", "Religion"], ["The miracle was later explained by ______.", "Religion"], ["The prayer chain has devolved into ______.", "Religion"], ["Purgatory is a waiting room with ______.", "Religion"], ["The collection plate came back holding ______.", "Religion"], ["Hell's orientation packet opens with ______.", "Religion"], ["The relic turned out to be ______.", "Religion"], ["The televangelist needs your money for ______.", "Religion"], ["The holy war started over ______.", "Religion"], ["The seance summoned ______.", "Religion"], ["The commandment nobody brings up: ______.", "Religion"], ["The campaign promise quietly dropped: ______.", "Politics"], ["The senator's explanation involved ______.", "Politics"], ["The bill passed at 3 a.m. because of ______.", "Politics"], ["My opponent is funded by ______.", "Politics"], ["The leaked memo mentioned ______.", "Politics"], ["The town hall descended into ______.", "Politics"], ["The lobbyist's expense report includes ______.", "Politics"], ["They resigned to spend more time with ______.", "Politics"], ["The scandal broke when someone found ______.", "Politics"], ["The debate was decided by ______.", "Politics"], ["The new law bans everything except ______.", "Politics"], ["The press secretary described it as ______.", "Politics"], ["The recount turned up ______.", "Politics"], ["The oath of office now includes ______.", "Politics"], ["The filibuster was just ______ for nine hours.", "Politics"], ["The bipartisan compromise was ______.", "Politics"], ["The attack ad accused them of ______.", "Politics"], ["The committee spent eight months investigating ______.", "Politics"], ["The campaign bus smells like ______.", "Politics"], ["The concession speech blamed ______.", "Politics"], ["The tax return lists ______ as a business expense.", "Money"], ["My retirement plan is ______.", "Money"], ["The financial advisor recommended ______.", "Money"], ["The startup pivoted to ______.", "Money"], ["My credit score dropped because of ______.", "Money"], ["The crypto whitepaper promised ______.", "Money"], ["The upline says the secret is ______.", "Money"], ["The rich are just like us, except for ______.", "Money"], ["The bank denied the loan over ______.", "Money"], ["The inheritance came with one condition: ______.", "Money"], ["The hedge fund's entire strategy is ______.", "Money"], ["The security deposit was withheld for ______.", "Money"], ["My side hustle is ______.", "Money"], ["The pyramid scheme's actual product was ______.", "Money"], ["The estate sale featured ______.", "Money"], ["The IRS would like a word about ______.", "Money"], ["The GoFundMe is for ______.", "Money"], ["The bonus structure rewards ______.", "Money"], ["Nothing says wealth like ______.", "Money"], ["The yacht christening involved ______.", "Money"], ["Thanksgiving ended when Dad brought up ______.", "Family"], ["The family group chat detonated over ______.", "Family"], ["Mom's number one disappointment is ______.", "Family"], ["The inheritance was split evenly except for ______.", "Family"], ["My childhood was mostly ______.", "Family"], ["The custody hearing hinged on ______.", "Family"], ["The reunion photo is missing ______.", "Family"], ["Grandma's recipe card just says ______.", "Family"], ["The sibling group chat is ninety percent ______.", "Family"], ["The wedding toast revealed ______.", "Family"], ["Dad's shed contains ______.", "Family"], ["The family secret is ______.", "Family"], ["Mom's freezer has held ______ since 2009.", "Family"], ["The divorce was finalized over ______.", "Family"], ["The vending machine has started dispensing ______.", "Cursed"], ["The AI woke up and immediately asked for ______.", "Cursed"], ["My sleep paralysis demon just wants to discuss ______.", "Cursed"], ["The prophecy was weirdly specific about ______.", "Cursed"], ["The zoo's newest exhibit is ______.", "Cursed"], ["Deep in the Mariana Trench, they found ______.", "Cursed"], ["The time traveler came back to warn us about ______.", "Cursed"], ["Every night at 3 a.m. the neighbors are ______.", "Cursed"], ["The Roomba has developed a taste for ______.", "Cursed"], ["The escape room was going well until we found ______.", "Cursed"], ["The dog won't stop staring at the corner because of ______.", "Cursed"], ["The group chat has been quiet since ______.", "Cursed"], ["The horse walked into the bar and ordered ______.", "Cursed"], ["The mirror shows ______ now.", "Cursed"], ["The basement door was locked from ______.", "Cursed"], ["The safe word was ______, and it did not work.", "Filth"], ["The hotel room black light revealed ______.", "Filth"], ["The gym has banned me for ______.", "Filth"], ["My browser history is ninety percent ______.", "Filth"], ["There's a reason I stopped shaking hands, and it's ______.", "Filth"], ["The dating profile said only ______.", "Filth"], ["TSA is now legally required to describe ______.", "Filth"], ["The public pool was closed due to ______.", "Filth"], ["The couch has absorbed ______.", "Filth"], ["The roommate's side of the fridge holds ______.", "Filth"], ["The lost and found is mostly ______.", "Filth"], ["The massage took a turn toward ______.", "Filth"], ["The hot tub incident involved ______.", "Filth"], ["The laundry revealed ______.", "Filth"], ["The new flavor nobody asked for: ______.", "Tame"], ["The theme park's least popular ride is ______.", "Tame"], ["The self-checkout machine has started saying ______.", "Tame"], ["A rejected Olympic sport: ______.", "Tame"], ["The worst possible name for a cruise ship: ______.", "Tame"], ["The cereal box promised ______.", "Tame"], ["The GPS confidently said ______.", "Tame"], ["The gift receipt was for ______.", "Tame"], ["The playlist opens with ______.", "Tame"], ["The group costume was ______.", "Tame"], ["Secret santa produced ______.", "Tame"], ["The trophy was awarded for ______.", "Tame"], ["Corporate has quietly introduced a policy about ______.", "Corporate evil"], ["Legal has quietly introduced a policy about ______.", "Corporate evil"], ["The school board has quietly introduced a policy about ______.", "Corporate evil"], ["The co-op board has quietly introduced a policy about ______.", "Corporate evil"], ["Compliance has quietly introduced a policy about ______.", "Corporate evil"], ["The franchise owner has quietly introduced a policy about ______.", "Corporate evil"], ["Middle management has quietly introduced a policy about ______.", "Corporate evil"], ["The HOA has quietly introduced a policy about ______.", "Corporate evil"], ["The IRS would like a word about ______.", "Crime"], ["My probation officer would like a word about ______.", "Crime"], ["Internal affairs would like a word about ______.", "Crime"], ["The health inspector would like a word about ______.", "Crime"], ["Code enforcement would like a word about ______.", "Crime"], ["Animal control would like a word about ______.", "Crime"], ["The dean would like a word about ______.", "Crime"], ["The licensing board would like a word about ______.", "Crime"], ["Nobody expected to find ______ in the crawlspace.", "Cursed"], ["Nobody expected to find ______ in the storm drain.", "Cursed"], ["Nobody expected to find ______ in the abandoned mall.", "Cursed"], ["Nobody expected to find ______ in my parents' attic.", "Cursed"], ["Nobody expected to find ______ in the walk-in freezer.", "Cursed"], ["Nobody expected to find ______ in the sub-basement.", "Cursed"], ["Nobody expected to find ______ in the ball pit.", "Cursed"], ["Nobody expected to find ______ in the church van.", "Cursed"], ["The funeral was ruined by ______.", "Mortality"], ["The wake was ruined by ______.", "Mortality"], ["The scattering of the ashes was ruined by ______.", "Mortality"], ["The memorial slideshow was ruined by ______.", "Mortality"], ["The graveside service was ruined by ______.", "Mortality"], ["The reading of the will was ruined by ______.", "Mortality"], ["The viewing was ruined by ______.", "Mortality"], ["The bachelor party ended with ______.", "Vice"], ["Trivia night ended with ______.", "Vice"], ["The work happy hour ended with ______.", "Vice"], ["The wine tasting ended with ______.", "Vice"], ["The tailgate ended with ______.", "Vice"], ["New Year's Eve ended with ______.", "Vice"], ["The company retreat ended with ______.", "Vice"], ["Karaoke ended with ______.", "Vice"], ["My mother won't stop bringing up ______.", "Family"], ["Uncle Dale won't stop bringing up ______.", "Family"], ["My stepsister won't stop bringing up ______.", "Family"], ["Grandpa won't stop bringing up ______.", "Family"], ["The in-laws won't stop bringing up ______.", "Family"], ["My cousin who does CrossFit won't stop bringing up ______.", "Family"], ["Dad won't stop bringing up ______.", "Family"], ["The group chat won't stop bringing up ______.", "Family"], ["The pastor would not approve of ______.", "Religion"], ["My confirmation sponsor would not approve of ______.", "Religion"], ["The church council would not approve of ______.", "Religion"], ["Whichever angel is on duty would not approve of ______.", "Religion"], ["The prayer group would not approve of ______.", "Religion"], ["The deacon would not approve of ______.", "Religion"], ["The nuns would not approve of ______.", "Religion"], ["The city council voted unanimously in favour of ______.", "Politics"], ["The ethics committee voted unanimously in favour of ______.", "Politics"], ["The school board voted unanimously in favour of ______.", "Politics"], ["The zoning board voted unanimously in favour of ______.", "Politics"], ["The subcommittee voted unanimously in favour of ______.", "Politics"], ["The homeowners association voted unanimously in favour of ______.", "Politics"], ["The parks department voted unanimously in favour of ______.", "Politics"], ["The nonprofit spent the entire budget on ______.", "Money"], ["The startup spent the entire budget on ______.", "Money"], ["The PTA spent the entire budget on ______.", "Money"], ["The university spent the entire budget on ______.", "Money"], ["The campaign spent the entire budget on ______.", "Money"], ["The wedding planner spent the entire budget on ______.", "Money"], ["The department spent the entire budget on ______.", "Money"], ["The union spent the entire budget on ______.", "Money"], ["The gym locker room smells like ______.", "Filth"], ["The tour van smells like ______.", "Filth"], ["My roommate's car smells like ______.", "Filth"], ["The dorm hallway smells like ______.", "Filth"], ["The bowling alley smells like ______.", "Filth"], ["The frat basement smells like ______.", "Filth"], ["The porta-potty at mile twelve smells like ______.", "Filth"], ["The chiropractor recommended ______.", "Medical horror"], ["My dentist recommended ______.", "Medical horror"], ["The urgent care doctor recommended ______.", "Medical horror"], ["A podcast host recommended ______.", "Medical horror"], ["The pharmacist recommended ______.", "Medical horror"], ["WebMD recommended ______.", "Medical horror"], ["My massage therapist recommended ______.", "Medical horror"], ["The school nurse recommended ______.", "Medical horror"], ["The chili cook-off was won by ______.", "Tame"], ["The science fair was won by ______.", "Tame"], ["The talent show was won by ______.", "Tame"], ["The office pool was won by ______.", "Tame"], ["The county fair was won by ______.", "Tame"], ["The spelling bee was won by ______.", "Tame"], ["The bake sale was won by ______.", "Tame"]];
+
+// Group order comes straight from the deck file, so this page can't drift
+// out of sync with what the game actually deals.
+const ORDER = ["all"].concat([...new Set(PROMPTS.map((p) => p[1]))]);
+const TAGVAR = {
+  "Mortality":"--t-dark","Medical horror":"--t-dark","Vice":"--t-vice","Crime":"--t-vice",
+  "Corporate evil":"--t-evil","Religion":"--t-religion","Politics":"--t-politics",
+  "Money":"--t-money","Family":"--t-family","Cursed":"--t-cursed","Filth":"--t-filth","Tame":"--t-tame",
+};
+const LABEL = Object.fromEntries(ORDER.map((k) => [k, k === "all" ? "All" : k]));
+
+const listEl = document.getElementById('plist');
+const countEl = document.getElementById('count');
+const filtersEl = document.getElementById('filters');
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const blanks = s => esc(s).replace(/_{3,}/g, '<span class="blank"></span>');
+
+document.getElementById('deckHead').textContent = PROMPTS.length + ' prompts';
+
+// Build filter buttons with live counts straight from the deck.
+const counts = PROMPTS.reduce((a,p) => (a[p[1]] = (a[p[1]]||0)+1, a), {});
+filtersEl.innerHTML = ORDER
+  .filter(k => k === 'all' || counts[k])
+  .map((k,i) => `<button class="fbtn" data-f="${k}" aria-pressed="${i===0}">${LABEL[k]} ${k==='all'?PROMPTS.length:counts[k]}</button>`)
+  .join('');
+
+document.getElementById('legend').innerHTML = ORDER.slice(1)
+  .map(k => `<span><b style="background:var(${TAGVAR[k] || '--muted'})"></b> ${k}</span>`)
+  .join('');
+
+function render(filter){
+  const rows = PROMPTS.filter(p => filter === 'all' || p[1] === filter);
+  listEl.innerHTML = rows.map((p,i) =>
+    `<li data-tag="${p[1]}"><span class="n">${i+1}</span><span>${blanks(p[0])}</span></li>`
+  ).join('');
+  countEl.textContent = filter === 'all'
+    ? `${rows.length} prompts, reshuffled fresh every game.`
+    : `${rows.length} ${LABEL[filter].toLowerCase()} prompts.`;
+}
+render('all');
+
+filtersEl.addEventListener('click', e => {
+  const btn = e.target.closest('.fbtn');
+  if(!btn) return;
+  filtersEl.querySelectorAll('.fbtn').forEach(b => b.setAttribute('aria-pressed','false'));
+  btn.setAttribute('aria-pressed','true');
+  render(btn.dataset.f);
+});
+
+// Hero draw — mirrors the server's no-repeat-until-exhausted shuffle.
+const drawText = document.getElementById('drawText');
+let bag = [];
+const refill = () => { bag = PROMPTS.map(p => p[0]).sort(() => Math.random() - 0.5); };
+refill();
+function deal(){
+  if(!bag.length) refill();
+  let next = bag.pop();
+  if(next === drawText.dataset.raw && bag.length){ bag.unshift(next); next = bag.pop(); }
+  drawText.dataset.raw = next;
+  drawText.innerHTML = blanks(next);
+  drawText.classList.remove('swap');
+  void drawText.offsetWidth;
+  drawText.classList.add('swap');
+}
+deal();
+document.getElementById('drawBtn').addEventListener('click', deal);
+</script>
+</body>
+</html>

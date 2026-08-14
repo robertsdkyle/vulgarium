@@ -1,0 +1,22 @@
+{
+  "vulgarium": "party-box",
+  "version": "1.0.0",
+  "description": "Phone-as-controller party game. The TV shows the game, phones are the controllers.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node run-tests.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.7.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

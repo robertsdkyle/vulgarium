@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Party Box — TV</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="linkbar" id="linkbar" hidden>Reconnecting<span class="waiting-dots"></span></div>
+<div class="tv">
+  <header class="tv-head">
+    <div class="wordmark">PARTY <b>BOX</b></div>
+    <div class="head-right">
+      <div class="timer" id="timer" hidden><span class="timer-num" id="timerNum">0</span></div>
+      <div class="eyebrow" id="roundLabel"></div>
+    </div>
+  </header>
+
+  <main class="tv-body" id="stage">
+    <p class="hint">Starting up…</p>
+  </main>
+
+  <footer class="tv-foot" id="controls"></footer>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const stage = document.getElementById('stage');
+const controls = document.getElementById('controls');
+const roundLabel = document.getElementById('roundLabel');
+const timerEl = document.getElementById('timer');
+const timerNum = document.getElementById('timerNum');
+const linkbar = document.getElementById('linkbar');
+
+// Connection status. Shown only while actually disconnected, so a brief blip
+// surfaces without destroying whatever is on screen.
+function setLink(up) { linkbar.hidden = !!up; }
+
+// The phones need a reachable address, not "localhost" — use whatever host
+// this page was loaded from.
+const joinUrl = location.host;
+
+// --- Room ownership ---------------------------------------------------------
+// The TV holds a hostToken so it can reclaim its room after a reload or a
+// dropped connection. Without this, every reconnect would silently spawn a
+// brand new room and strand everyone who had already joined.
+const SAVE_KEY = 'partybox.host';
+function saveRoom(code, hostToken) {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ code, hostToken })); } catch (_) {}
+}
+function loadRoom() {
+  try { return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch (_) { return null; }
+}
+function forgetRoom() {
+  try { localStorage.removeItem(SAVE_KEY); } catch (_) {}
+}
+
+function createRoom() {
+  // Tell the server the exact address the TV was opened at, so the QR points
+  // phones to the same reachable URL rather than the server's own guess.
+  socket.emit('host:create', { origin: location.origin }, (res) => {
+    if (res && res.ok) saveRoom(res.code, res.hostToken);
+    else showFatal(res && res.error ? res.error : 'Could not start a room.');
+  });
+}
+
+socket.on('connect', () => {
+  setLink(true);
+  const saved = loadRoom();
+  if (!saved) return createRoom();
+  // Try to take our old room back; if it's gone, just start a fresh one.
+  socket.emit('host:resume', { ...saved, origin: location.origin }, (res) => {
+    if (res && res.ok) return;
+    forgetRoom();
+    createRoom();
+  });
+});
+
+function showFatal(msg) {
+  stage.innerHTML = `<p class="hint">${esc(msg)}</p>`;
+  controls.innerHTML = '';
+}
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const codeTiles = (code) => `<div class="code-tiles">${code.split('').map((c) => `<span>${c}</span>`).join('')}</div>`;
+// Prompts carry a ______ blank. Escape first, then turn the underscores into
+// a styled slot so the fill-in-the-blank shape reads instantly from the couch.
+const promptHTML = (t) => esc(t || '').replace(/_{3,}/g, '<span class="blank"></span>');
+
+// --- Countdown. The server sends a `deadline` (ms epoch); we tick locally
+// toward it so the big number stays smooth without any network chatter. ---
+let countdownTimer = null;
+function runCountdown(deadline) {
+  clearInterval(countdownTimer);
+  if (!deadline) { timerEl.hidden = true; return; }
+  const tick = () => {
+    const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    timerNum.textContent = left;
+    timerEl.hidden = false;
+    timerEl.classList.toggle('urgent', left <= 5);
+    if (left <= 0) clearInterval(countdownTimer);
+  };
+  tick();
+  countdownTimer = setInterval(tick, 250);
+}
+
+socket.on('state', (s) => {
+  roundLabel.textContent = s.phase === 'LOBBY' || s.phase === 'SCORES'
+    ? `Room ${s.code}`
+    : `Round ${s.round} of ${s.totalRounds}`;
+
+  runCountdown(s.deadline);
+
+  const connected = s.players.filter((p) => p.connected);
+
+  if (s.phase === 'LOBBY') {
+    stage.innerHTML = `
+      <div class="lobby-grid">
+        <div class="join-block">
+          <p class="eyebrow">On your phone, open</p>
+          <p class="url"><em>${esc(joinUrl)}</em></p>
+          <p class="eyebrow">and enter the code</p>
+          ${codeTiles(s.code)}
+        </div>
+        ${s.qr ? `<div class="qr-block">
+          <img class="qr" src="${s.qr}" alt="Scan to join">
+          <p class="eyebrow">or scan to join</p>
+        </div>` : ''}
+      </div>
+      <div class="roster">
+        ${connected.length
+          ? connected.map((p) => `<div class="chip ready">${esc(p.name)}</div>`).join('')
+          : '<p class="hint">Waiting for players<span class="waiting-dots"></span></p>'}
+      </div>
+      ${connected.length && s.personalOn
+        ? `<p class="hint">${s.setupDone} of ${connected.length} answered their question — the rest can still play, they just won't have a detail of their own.</p>`
+        : ''}`;
+    controls.innerHTML = `
+      <button class="btn-big ghost" id="personal">${s.personalOn ? 'Personal prompts: on' : 'Personal prompts: off'}</button>
+      <button class="btn-big" id="start" ${connected.length < 2 ? 'disabled' : ''}>
+      ${connected.length < 2 ? 'Need 2 players' : `Start with ${connected.length}`}</button>`;
+    document.getElementById('start').onclick = () => socket.emit('host:start');
+    document.getElementById('personal').onclick = () => socket.emit('host:personal', { on: !s.personalOn });
+    return;
+  }
+
+  // A single "Skip ahead" button covers every in-game phase now that timers
+  // drive the flow. It just jumps the current phase forward immediately.
+  const skipBtn = (label) => {
+    controls.innerHTML = `<button class="btn-big ghost" id="skip">${label}</button>`;
+    document.getElementById('skip').onclick = () => socket.emit('host:skip');
+  };
+
+  if (s.phase === 'WRITING') {
+    stage.innerHTML = `
+      <div class="prompt-card"><p class="prompt-text">${promptHTML(s.prompt)}</p></div>
+      <div class="roster">
+        ${connected.map((p) => `<div class="chip ${p.hasAnswered ? 'ready' : ''}">${esc(p.name)}</div>`).join('')}
+      </div>
+      <p class="hint">Answer on your phone. Green means you're in.</p>`;
+    // Swapping is only offered before anyone commits, so nobody loses work.
+    const nobodyIn = !connected.some((p) => p.hasAnswered);
+    controls.innerHTML = `
+      ${nobodyIn ? '<button class="btn-big ghost" id="swap">Different prompt</button>' : ''}
+      <button class="btn-big ghost" id="skip">Skip to voting</button>`;
+    document.getElementById('skip').onclick = () => socket.emit('host:skip');
+    const swapBtn = document.getElementById('swap');
+    if (swapBtn) swapBtn.onclick = () => socket.emit('host:swapPrompt');
+    return;
+  }
+
+  if (s.phase === 'VOTING') {
+    stage.innerHTML = `
+      <div class="prompt-card"><p class="prompt-text">${promptHTML(s.prompt)}</p></div>
+      <div class="answer-list">
+        ${s.answers.map((a, i) => `<div class="answer-row" style="animation-delay:${i * 0.08}s"><span>${esc(a.text)}</span></div>`).join('')}
+      </div>
+      <div class="roster">
+        ${connected.map((p) => `<div class="chip ${p.hasVoted ? 'ready' : ''}">${esc(p.name)}</div>`).join('')}
+      </div>`;
+    skipBtn('Skip to results');
+    return;
+  }
+
+  if (s.phase === 'RESULTS') {
+    const ranked = [...s.answers].sort((a, b) => b.votes.length - a.votes.length);
+    stage.innerHTML = `
+      <div class="prompt-card"><p class="prompt-text">${promptHTML(s.prompt)}</p></div>
+      <div class="answer-list">
+        ${ranked.map((a, i) => `
+          <div class="answer-row" style="animation-delay:${i * 0.12}s">
+            <span>${esc(a.text)}</span>
+            <span class="who">${esc(a.name || '')}</span>
+            <span class="votes">${a.votes.length ? esc(a.votes.join(', ')) : '—'}</span>
+          </div>`).join('')}
+      </div>`;
+    skipBtn(s.round >= s.totalRounds ? 'Skip to final scores' : 'Skip to next round');
+    return;
+  }
+
+  if (s.phase === 'SCORES') {
+    const ranked = [...s.players].sort((a, b) => b.score - a.score);
+    stage.innerHTML = `
+      <h1 style="text-align:center;font-size:clamp(2rem,6vw,5rem)">${esc(ranked[0]?.name || '')} wins</h1>
+      <div class="scoreboard">
+        ${ranked.map((p, i) => `
+          <div class="score-row">
+            <span class="rank">${i + 1}</span>
+            <span>${esc(p.name)}</span>
+            <span class="pts">${p.score}</span>
+          </div>`).join('')}
+      </div>`;
+    controls.innerHTML = `<button class="btn-big ghost" id="again">Back to lobby</button>`;
+    document.getElementById('again').onclick = () => socket.emit('host:restart');
+  }
+});
+
+// A dropped connection is no longer fatal — socket.io retries, and on reconnect
+// we reclaim the room via the stored token. So don't wipe the screen; just flag
+// it, and let the game state reappear when the socket comes back.
+socket.on('disconnect', () => setLink(false));
+
+socket.on('room:closed', ({ reason } = {}) => {
+  forgetRoom();
+  showFatal(reason ? reason + ' Reload to start a new room.' : 'Room closed. Reload to start a new one.');
+});
+</script>
+</body>
+</html>
