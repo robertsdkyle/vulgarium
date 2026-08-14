@@ -40,7 +40,11 @@ function setLink(up) { linkbar.hidden = !!up; }
 
 // The phones need a reachable address, not "localhost" — use whatever host
 // this page was loaded from.
-const joinUrl = location.host;
+// Fallback only. The server sends back the address it actually encoded into
+// the QR (see joinBase in server.js), and that's what we display — otherwise a
+// TV opened at localhost would tell people to type "localhost:3000", which
+// means "this phone" on a phone.
+const fallbackJoinUrl = location.host;
 
 // --- Room ownership ---------------------------------------------------------
 // The TV holds a hostToken so it can reclaim its room after a reload or a
@@ -120,7 +124,7 @@ socket.on('state', (s) => {
       <div class="lobby-grid">
         <div class="join-block">
           <p class="eyebrow">On your phone, open</p>
-          <p class="url"><em>${esc(joinUrl)}</em></p>
+          <p class="url"><em>${esc((s.joinUrl || '').replace(/^https?:\/\//, '') || fallbackJoinUrl)}</em></p>
           <p class="eyebrow">and enter the code</p>
           ${codeTiles(s.code)}
         </div>

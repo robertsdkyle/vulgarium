@@ -264,6 +264,7 @@ function broadcast(room) {
     deadline: room.deadline || null,
     durations: TIMERS,
     qr: room.qr || null,
+    joinUrl: room.joinUrl || null,
     hostConnected: !!room.hostSocketId,
     personalOn: room.personalOn,
     setupDone: room.players.filter((p) => p.setupA || !p.allowPersonal).length,
@@ -460,8 +461,35 @@ function playerOfSocket(socket) {
   return room ? room.players.find((p) => p.pid === ref.pid) || null : null;
 }
 
+/**
+ * Work out the URL phones should be sent to.
+ *
+ * The TV reports the address it was opened at. If that's localhost, encoding
+ * it into a QR is worse than useless: a phone scanning "localhost:3000" tries
+ * to reach ITSELF and fails with no clue why. So we swap in this machine's
+ * network address whenever the TV is on a loopback address.
+ *
+ * A deployed server reports a real hostname and is left alone.
+ */
+function joinBase(origin) {
+  let base = origin || `http://${lanAddress()}:${PORT}`;
+  try {
+    const u = new URL(base);
+    if (['localhost', '127.0.0.1', '[::1]', '::1', '0.0.0.0'].includes(u.hostname)) {
+      const lan = lanAddress();
+      if (lan && lan !== 'localhost') {
+        u.hostname = lan;
+        base = u.origin;
+      }
+    }
+  } catch (_) { /* malformed origin — fall through with what we have */ }
+  return base.replace(/\/+$/, '');
+}
+
 async function makeQr(room, origin) {
-  const base = origin || `http://${lanAddress()}:${PORT}`;
+  const base = joinBase(origin);
+  // Remember it so the TV can display the same address it encodes.
+  room.joinUrl = base;
   try {
     room.qr = await QRCode.toDataURL(`${base}/?c=${room.code}`, {
       margin: 1, width: 320, color: { dark: '#14102e', light: '#f6f0e4' },
@@ -767,16 +795,91 @@ setInterval(() => {
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
-function lanAddress() {
-  for (const iface of Object.values(os.networkInterfaces()).flat()) {
-    if (iface && iface.family === 'IPv4' && !iface.internal) return iface.address;
+/**
+ * Find the address phones should actually use.
+ *
+ * The naive version — first non-internal IPv4 — picks whatever the OS happens
+ * to list first, which on a Mac is regularly a VPN tunnel (utun*), an AirDrop
+ * adapter (awdl0), or a Docker bridge. Phones can't reach any of those, so the
+ * game would print an address that silently goes nowhere.
+ *
+ * So: throw out interfaces that are never the answer, then rank what's left.
+ * Returns the best guess; `lanCandidates()` exposes the rest for the boot
+ * message, because a wrong guess is much easier to recover from when the
+ * alternatives are printed right there.
+ */
+const VIRTUAL_IFACE = /^(utun|tun|tap|awdl|llw|bridge|docker|veth|vboxnet|vmnet|zt|wg|ham|anpi)/i;
+
+function lanCandidates() {
+  const out = [];
+  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
+    if (VIRTUAL_IFACE.test(name)) continue;
+    for (const a of addrs || []) {
+      if (!a || a.family !== 'IPv4' || a.internal) continue;
+      // Rank: real Wi-Fi/Ethernet names first, then by how likely the range is
+      // to be a home network a phone shares.
+      let score = 0;
+      if (/^en\d/.test(name)) score += 100;      // macOS Wi-Fi / Ethernet
+      if (/^(eth|wlan|wl)\d/.test(name)) score += 100; // Linux equivalents
+      if (a.address.startsWith('192.168.')) score += 50;
+      else if (/^172\.(1[6-9]|2\d|3[01])\./.test(a.address)) score += 30;
+      else if (a.address.startsWith('10.')) score += 20;
+      if (name === 'en0') score += 10;           // the usual Wi-Fi on a Mac
+      out.push({ name, address: a.address, score });
+    }
   }
-  return 'localhost';
+  return out.sort((x, y) => y.score - x.score);
+}
+
+function lanAddress() {
+  const best = lanCandidates()[0];
+  return best ? best.address : 'localhost';
 }
 
 server.listen(PORT, '0.0.0.0', () => {
-  const ip = lanAddress();
+  // Hosts set these; locally none of them exist.
+  const hostedUrl =
+    process.env.RENDER_EXTERNAL_URL ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN && `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`) ||
+    (process.env.FLY_APP_NAME && `https://${process.env.FLY_APP_NAME}.fly.dev`) ||
+    null;
+  const hosted = !!hostedUrl || !!process.env.RENDER || !!process.env.FLY_APP_NAME;
+
   console.log('\n  PARTY BOX is running\n');
-  console.log(`  TV / laptop   ->  http://localhost:${PORT}/host`);
-  console.log(`  Phones        ->  http://${ip}:${PORT}\n`);
+
+  if (hosted) {
+    // Deployed: there's no LAN and no "same Wi-Fi" — everyone comes in over
+    // the internet, so printing a local address would just mislead.
+    console.log(`  Listening on port ${PORT}.`);
+    if (hostedUrl) {
+      console.log(`\n    TV / laptop   ->  ${hostedUrl}/host`);
+      console.log(`    Phones        ->  ${hostedUrl}\n`);
+    } else {
+      console.log('  Open /host on your public URL for the TV screen,');
+      console.log('  and the root URL on phones.\n');
+    }
+    return;
+  }
+
+  const all = lanCandidates();
+  const ip = all.length ? all[0].address : 'localhost';
+  if (!all.length) {
+    console.log('  No network address found — this machine may be offline.');
+    console.log(`  You can still open http://localhost:${PORT}/host on this computer,`);
+    console.log('  but phones will not be able to reach it.\n');
+    return;
+  }
+  // Point the TV at the network address too, not localhost: the QR code and
+  // the join address shown on screen are built from whatever the TV page was
+  // opened at, and "localhost" means "this phone" to a phone.
+  console.log('  Open BOTH of these in a web browser (not in this terminal):\n');
+  console.log(`    TV / laptop   ->  http://${ip}:${PORT}/host`);
+  console.log(`    Phones        ->  http://${ip}:${PORT}\n`);
+  if (all.length > 1) {
+    console.log('  If phones cannot reach that, try one of these instead:');
+    for (const c of all.slice(1)) console.log(`    http://${c.address}:${PORT}   (${c.name})`);
+    console.log('');
+  }
+  console.log('  Phones must be on the same Wi-Fi as this computer.');
+  console.log('  Cafe, hotel and apartment Wi-Fi usually block this — deploy instead.\n');
 });
