@@ -86,6 +86,7 @@ export function render({ room, host, audience }) {
         ${lob.vipName ? `<p class="hint">${esc(lob.vipName)} is the VIP and can start from their phone.</p>` : ''}`;
       controls([
         { id: 'personal', label: host.personalOn ? 'Personal prompts: on' : 'Personal prompts: off', op: 'host/personal', payload: { on: !host.personalOn }, ghost: true },
+        { id: 'house', label: host.houseOn ? 'House answers: on' : 'House answers: off', op: 'host/house', payload: { on: !host.houseOn }, ghost: true },
         { id: 'start', label: host.canStart ? `Start with ${live.length}` : `Need ${lob.minPlayers || 2} players`, op: 'host/start', disabled: !host.canStart },
       ]);
       return;
@@ -125,8 +126,8 @@ export function render({ room, host, audience }) {
     case 'VOTING': {
       const counts = (audience && audience.counts) || {};
       els.stage.innerHTML = `
-        <div class="prompt-card"><p class="prompt-text">${promptHTML(room.prompt)}</p></div>
-        <div class="answer-list">
+        <div class="prompt-card ${room.answers.length > 4 ? 'compact' : ''}"><p class="prompt-text">${promptHTML(room.prompt)}</p></div>
+        <div class="answer-list ${room.answers.length > 8 ? 'many lots' : room.answers.length > 4 ? 'many' : ''}">
           ${room.answers.map((a, i) => `<div class="answer-row" style="animation-delay:${i * 0.08}s"><span>${esc(a.text)}</span>${
             counts[a.id] ? `<span class="aud">${counts[a.id]} 👏</span>` : ''}</div>`).join('')}
         </div>
@@ -141,15 +142,17 @@ export function render({ room, host, audience }) {
       const ranked = [...room.answers].sort((a, b) => b.votes.length - a.votes.length);
       const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
       els.stage.innerHTML = `
-        <div class="prompt-card"><p class="prompt-text">${promptHTML(room.prompt)}</p></div>
-        <div class="answer-list">
+        <div class="prompt-card ${ranked.length > 4 ? 'compact' : ''}"><p class="prompt-text">${promptHTML(room.prompt)}</p></div>
+        <div class="answer-list ${ranked.length > 8 ? 'many lots' : ranked.length > 4 ? 'many' : ''}">
           ${ranked.length ? ranked.map((a, i) => `
-            <div class="answer-row ${top && top[0] === a.id ? 'aud-fav' : ''}" style="animation-delay:${i * 0.12}s">
+            <div class="answer-row ${top && top[0] === a.id ? 'aud-fav' : ''} ${a.isHouse ? 'house' : ''}" style="animation-delay:${i * 0.12}s">
               <span>${esc(a.text)}</span>
-              <span class="who">${esc(a.name || '')}</span>
-              <span class="votes">${a.votes.length ? esc(a.votes.join(', ')) : '—'}${counts[a.id] ? `<br><span class="aud">${counts[a.id]} audience</span>` : ''}</span>
-            </div>`).join('') : '<p class="hint">Not enough answers this round.</p>'}
+              <span class="who">${a.isHouse ? '📦 ' : ''}${esc(a.name || '')}</span>
+              <span class="votes">${a.votes.length ? (a.isHouse ? 'fooled ' : '') + esc(a.votes.join(', ')) : '—'}${counts[a.id] ? `<br><span class="aud">${counts[a.id]} audience</span>` : ''}</span>
+            </div>`).join('') : '<p class="hint">Nobody answered this round.</p>'}
         </div>
+        ${room.voteSkipped && ranked.length ? '<p class="hint">Not enough answers to vote on this round.</p>' : ''}
+        ${ranked.some((a) => a.isHouse) ? '<p class="hint">📦 = planted by the box. Anyone who picked one got fooled.</p>' : ''}
         ${top ? '<p class="hint">Highlighted: the audience favorite.</p>' : ''}
         ${goneNote}`;
       controls([skip(room.round >= room.totalRounds ? 'Skip to final scores' : 'Skip to next round')]);

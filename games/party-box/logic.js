@@ -18,6 +18,7 @@ const ROOT = path.join(__dirname, '..', '..');
 const { QUESTIONS: SETUP_QUESTIONS, buildPersonal } = require(path.join(ROOT, 'personal'));
 const SEEDS = require(path.join(ROOT, 'seeds'));
 const { GROUP_NAMES, dealPrompt } = require('./dealer');
+const { makeHouseAnswers } = require('./house');
 
 const env = (k, d) => (process.env[k] !== undefined && process.env[k] !== '' ? Number(process.env[k]) : d);
 
@@ -29,6 +30,15 @@ const SEEDS_PER_PLAYER = env('SEEDS_PER_PLAYER', 5);
 const PERSONAL_ROUNDS = env('PERSONAL_ROUNDS', 2);
 const PICKING_ON = env('PICKING', 1) !== 0;
 const PICK_CHOICES = 4;
+// House answers: decoys the game adds to every vote (see house.js). The vote
+// is topped up to at least MIN_CHOICES options, with 1–2 decoys per round.
+const HOUSE_ON = env('HOUSE', 1) !== 0;
+const MIN_CHOICES = 3;
+const MAX_HOUSE = 2;
+// A player who drops (screen lock, reload) still "holds" the round this long,
+// so the room doesn't race ahead while their phone reconnects. After that the
+// phase timer covers them.
+const DROP_HOLD_MS = env('DROP_HOLD', 30) * 1000;
 
 const TIMERS = {
   PICKING: env('T_PICKING', 12),
@@ -67,6 +77,9 @@ function create(ctx) {
     deadline: null,
     timer: null,
     personalOn: true,
+    houseOn: HOUSE_ON,
+    spareSeeds: [],        // seeds nobody was dealt this round (house answers use them)
+    voteSkipped: false,    // the round had no answers to vote on
     personalRounds: new Set(),
     personalUsed: new Set(),
     usedPersonalFrames: new Set(),
@@ -129,6 +142,7 @@ function create(ctx) {
     s.category = null;
     s.pick = null;
     s.answers = [];
+    s.voteSkipped = false;
     s.audienceVotes = new Map();
     for (const p of s.seats.values()) {
       p.answer = null;
@@ -190,6 +204,7 @@ function create(ctx) {
     // Private hands, off one shuffled deck, so nobody shares a scrap.
     const deck = shuffle([...SEEDS]);
     for (const p of s.seats.values()) p.seeds = deck.splice(0, SEEDS_PER_PLAYER);
+    s.spareSeeds = deck;
     startTimer(TIMERS.WRITING, enterVoting);
     ctx.touch();
     ctx.sync();
@@ -200,11 +215,15 @@ function create(ctx) {
     clearTimer();
     // Answers get fresh opaque ids and a shuffled order, so nothing on the
     // wire links an answer to its author until the reveal.
-    s.answers = shuffle(
-      [...s.seats.entries()].filter(([, p]) => p.answer).map(([uid, p]) => ({ id: rid(), author: uid, text: p.answer }))
-    );
+    const real = [...s.seats.entries()].filter(([, p]) => p.answer).map(([uid, p]) => ({ id: rid(), author: uid, text: p.answer }));
+    // The box plants its decoys. With house answers on, even a round where
+    // only one person answered still gets a vote.
+    const houseCount = s.houseOn && real.length ? Math.min(MAX_HOUSE, Math.max(1, MIN_CHOICES - real.length)) : 0;
+    const house = makeHouseAnswers(houseCount, s.spareSeeds, real.map((a) => a.text))
+      .map((text) => ({ id: rid(), author: 'house', text }));
+    s.answers = shuffle([...real, ...house]);
     s.phase = 'VOTING';
-    if (s.answers.length < 2) return enterResults();
+    if (s.answers.length < 2) { s.voteSkipped = true; return enterResults(); }
     startTimer(TIMERS.VOTING, enterResults);
     ctx.touch();
     ctx.sync();
@@ -222,7 +241,14 @@ function create(ctx) {
     for (const [uid, p] of s.seats) {
       const mine = s.answers.find((a) => a.author === uid);
       const votes = mine ? [...s.seats.values()].filter((v) => v.votedFor === mine.id).length : 0;
-      p.lastRound = { votes, points: votes * POINTS_PER_VOTE, answered: !!p.answer };
+      const picked = p.votedFor && s.answers.find((a) => a.id === p.votedFor);
+      p.lastRound = {
+        votes,
+        points: votes * POINTS_PER_VOTE,
+        answered: !!p.answer,
+        fooled: !!(picked && picked.author === 'house'),
+        noVote: s.voteSkipped,
+      };
     }
     s.phase = 'RESULTS';
     startTimer(TIMERS.RESULTS, advanceFromResults);
@@ -268,11 +294,14 @@ function create(ctx) {
     ctx.sync();
   }
 
-  // Advance early once every *connected* player is done. Someone who dropped
-  // doesn't hold up the room; the phase timer covers them.
+  // Advance early once every player still holding the round is done:
+  // everyone connected, plus anyone who dropped less than DROP_HOLD_MS ago
+  // (a screen lock or reload shouldn't skip their turn). Players gone longer
+  // don't hold up the room; the phase timer covers them.
   function maybeAdvance() {
-    const live = connectedSeats();
-    if (!live.length) return;
+    const now = Date.now();
+    const live = seatList().filter((x) => x.m.conn || (x.m.goneAt && now - x.m.goneAt < DROP_HOLD_MS));
+    if (!live.some((x) => x.m.conn)) return;
     if (s.phase === 'PICKING' && s.pick && !s.seats.has(s.pick.picker)) autoPick();
     else if (s.phase === 'WRITING' && live.every((x) => x.p.answer)) enterVoting();
     else if (s.phase === 'VOTING' && live.every((x) => x.p.votedFor)) enterResults();
@@ -303,6 +332,10 @@ function create(ctx) {
           return ok;
         case 'host/restart':
           backToLobby();
+          return ok;
+        case 'host/house':
+          s.houseOn = !!data.on;
+          ctx.sync();
           return ok;
         case 'host/personal':
           s.personalOn = !!data.on;
@@ -418,7 +451,11 @@ function create(ctx) {
     });
   }
   function onReconnect() {}
-  function onDisconnect() { maybeAdvance(); }
+  function onDisconnect() {
+    // Once their hold runs out, they stop blocking an early advance.
+    const t = setTimeout(maybeAdvance, DROP_HOLD_MS + 50);
+    if (t.unref) t.unref();
+  }
   function onRemove(m) {
     s.seats.delete(m.userId);
     s.audienceVotes.delete(m.userId);
@@ -438,6 +475,10 @@ function create(ctx) {
     if (s.phase === 'VOTING') answers = s.answers.map((a) => ({ id: a.id, text: a.text }));
     else if (s.phase === 'RESULTS') {
       answers = s.answers.map((a) => {
+        if (a.author === 'house') {
+          const fooled = seats.filter((x) => x.p.votedFor === a.id).map((x) => x.m.name);
+          return { id: a.id, text: a.text, name: 'The Box', authorId: null, isHouse: true, votes: fooled };
+        }
         const author = member(a.author);
         const voters = seats.filter((x) => x.p.votedFor === a.id).map((x) => x.m.name);
         return { id: a.id, text: a.text, name: author ? author.name : '(left)', authorId: author ? author.id : null, votes: voters };
@@ -450,6 +491,7 @@ function create(ctx) {
       totalRounds: ROUNDS,
       prompt: s.phase === 'PICKING' ? null : s.prompt,
       category: s.category,
+      voteSkipped: s.phase === 'RESULTS' && s.voteSkipped,
       personalRound: s.personalRound,
       deadline: s.deadline,
       durations: TIMERS,
@@ -468,6 +510,7 @@ function create(ctx) {
       lobby: s.phase === 'LOBBY'
         ? {
             personalOn: s.personalOn,
+            houseOn: s.houseOn,
             setupDone: live.filter((x) => x.p.setupA || !x.p.allowPersonal).length,
             minPlayers: MIN_PLAYERS,
             maxPlayers: MAX_PLAYERS,
@@ -491,6 +534,7 @@ function create(ctx) {
       canSkip: ['PICKING', 'WRITING', 'VOTING', 'RESULTS'].includes(s.phase),
       canSwap: s.phase === 'WRITING' && ![...s.seats.values()].some((p) => p.answer),
       personalOn: s.personalOn,
+      houseOn: s.houseOn,
     };
 
     const ranked = [...seats].sort((a, b) => b.p.score - a.p.score);

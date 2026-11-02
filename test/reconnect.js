@@ -126,5 +126,35 @@ const log = console.log;
   check('trimmed "Mike " -> Mike4', names[3] === 'Mike4', names[3]);
   check('long names stay within 14 chars', names[5] === 'abcdefghijklm2' && names[5].length === 14, names[5]);
 
+  // ---------------------------------------------------------------------
+  log('\n[8] A player who drops briefly still holds the round');
+  // ---------------------------------------------------------------------
+  // Runs with DROP_HOLD=2 (seconds) from run-tests.js.
+  const H = await setupRoom(['Hal', 'Ivy']);
+  const [hal, ivy] = H.players;
+  await H.host.send('host/personal', { on: false });
+  await H.host.send('host/start');
+  await H.host.waitFor((h) => h.room.phase === 'PICKING');
+  await H.host.send('host/skip');
+  await H.host.waitFor((h) => h.room.phase === 'WRITING');
+  hal.close(); // screen lock mid-write
+  await H.host.waitFor((h) => h.room.players.find((p) => p.name === 'Hal').connected === false);
+  await ivy.send('write/answer', { text: 'Ivy answer' });
+  await wait(600);
+  check('round does NOT skip ahead while Hal is briefly away', H.host.room.phase === 'WRITING', H.host.room.phase);
+  const hal2 = await connect({ code: H.code, userId: hal.userId, secret: hal.welcome.secret });
+  await hal2.send('write/answer', { text: 'Hal answer' });
+  await H.host.waitFor((h) => h.room.phase !== 'WRITING');
+  check('once Hal is back and answers, it goes to VOTING (not results)', H.host.room.phase === 'VOTING', H.host.room.phase);
+
+  hal2.close();
+  await H.host.waitFor((h) => h.room.players.find((p) => p.name === 'Hal').connected === false);
+  await ivy.waitFor((c) => c.me.choices.length > 0);
+  await ivy.send('vote/cast', { id: ivy.me.choices[0].id });
+  await wait(600);
+  check('still waiting on Hal inside the hold window', H.host.room.phase === 'VOTING', H.host.room.phase);
+  await H.host.waitFor((h) => h.room.phase === 'RESULTS', 3500).catch(() => {});
+  check('after the hold runs out, the room moves on without him', H.host.room.phase === 'RESULTS', H.host.room.phase);
+
   done();
 })().catch((e) => { console.error('FAIL  crashed:', e); process.exit(1); });

@@ -497,3 +497,17 @@ html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
 [hidden] { display: none !important; }
 .phone-head .me { gap: 0.45rem; }
 .phone-head .me .av { margin-right: 0; }
+.answer-row.house { box-shadow: inset 0 0 0 2px rgba(154, 146, 196, 0.5); }
+.answer-row.house .who { color: var(--muted); }
+
+/* Long answer lists (big rooms + house answers) must fit one TV screen:
+   two columns, tighter rows, and a smaller prompt card above them. */
+.prompt-card.compact { padding: clamp(0.9rem, 2vw, 1.6rem); }
+.prompt-card.compact .prompt-text { font-size: clamp(1.3rem, 3vw, 2.6rem); }
+.answer-list.many { grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+.answer-list.many .answer-row { font-size: clamp(0.9rem, 1.6vw, 1.5rem); padding: 0.7rem 1rem; gap: 0.8rem; flex-wrap: wrap; }
+.answer-list.many .answer-row > span:first-child { flex: 1 1 100%; }
+.answer-list.many .answer-row .who { margin-right: auto; }
+.answer-list.lots { grid-template-columns: repeat(3, 1fr); }
+.answer-list.lots .answer-row { font-size: clamp(0.85rem, 1.35vw, 1.3rem); }
+.tv-body:has(.answer-list.many) { gap: 2.2vh; justify-content: flex-start; }

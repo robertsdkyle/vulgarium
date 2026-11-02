@@ -215,5 +215,62 @@ async function toPhase(R, phase) {
   check('…and the connection is closed (4009, or 1006 behind a proxy)', eleventh && [4009, 1006].includes(eleventh.closeCode),
     eleventh ? eleventh.closeCode : '-');
 
+  // ---------------------------------------------------------------------
+  log('\n[12] House answers: decoys the box plants in the vote');
+  // ---------------------------------------------------------------------
+  const Hs = await setupRoom(['Ann', 'Bo', 'Cy'], { house: true });
+  await Hs.host.send('host/personal', { on: false });
+  check('TV can see the house toggle', Hs.host.host.houseOn === true);
+  await Hs.host.send('host/start');
+  await Hs.host.waitFor((h) => h.room.phase === 'PICKING');
+  await Hs.host.send('host/skip');
+  await Hs.host.waitFor((h) => h.room.phase === 'WRITING');
+  await Promise.all(Hs.players.map((p) => p.waitFor((c) => c.me.seeds.length > 0)));
+  const dealt = Hs.players.flatMap((p) => p.me.seeds);
+  const real = ['ANN real', 'BO real', 'CY real'];
+  for (let i = 0; i < 3; i++) await Hs.players[i].send('write/answer', { text: real[i] });
+  await Hs.host.waitFor((h) => h.room.phase === 'VOTING');
+  const vAnswers = Hs.host.room.answers;
+  check('vote has the 3 real answers plus 1 house answer', vAnswers.length === 4, vAnswers.length);
+  check('nothing on the wire marks the house answer while voting', vAnswers.every((a) => Object.keys(a).sort().join() === 'id,text'));
+  const houseA = vAnswers.find((a) => !real.includes(a.text));
+  check("house answer doesn't reuse a seed someone was holding", houseA && !dealt.some((d) => houseA.text.includes(d)), houseA && houseA.text);
+  await Hs.players[0].waitFor((c) => c.me.choices.length === 3);
+  check('players can vote for it (it is not anyone\'s own)', Hs.players[0].me.choices.some((c) => c.id === houseA.id));
+  await Hs.players[0].send('vote/cast', { id: houseA.id });                       // Ann gets fooled
+  await Hs.players[1].send('vote/cast', { id: vAnswers.find((a) => a.text === 'CY real').id });
+  await Hs.players[2].send('vote/cast', { id: vAnswers.find((a) => a.text === 'BO real').id });
+  await Hs.host.waitFor((h) => h.room.phase === 'RESULTS');
+  const rh = Hs.host.room.answers.find((a) => a.id === houseA.id);
+  check('results reveal it as The Box', rh && rh.isHouse === true && rh.name === 'The Box');
+  check('results list who it fooled', rh && rh.votes.includes('Ann'));
+  await Hs.players[0].waitFor((c) => c.me.lastRound);
+  check("Ann's phone knows she was fooled", Hs.players[0].me.lastRound.fooled === true);
+  check('a vote for the house scores for nobody', Hs.host.room.players.reduce((t, p) => t + p.score, 0) === 200);
+
+  const One = await setupRoom(['Solo', 'Quiet'], { house: true });
+  await One.host.send('host/personal', { on: false });
+  await One.host.send('host/start');
+  await One.host.waitFor((h) => h.room.phase === 'PICKING');
+  await One.host.send('host/skip');
+  await One.host.waitFor((h) => h.room.phase === 'WRITING');
+  await One.players[0].send('write/answer', { text: 'only answer' });
+  await One.host.send('host/skip');
+  await One.host.waitFor((h) => h.room.phase !== 'WRITING');
+  check('one real answer still gets a vote (topped up with decoys)', One.host.room.phase === 'VOTING' && One.host.room.answers.length === 3,
+    `${One.host.room.phase} / ${One.host.room.answers.length}`);
+  await One.players[0].waitFor((c) => c.me.choices.length > 0);
+  check('the only writer still has something to vote for', One.players[0].me.choices.length === 2);
+
+  const Zero = await setupRoom(['Nil', 'Nada'], { house: true });
+  await Zero.host.send('host/personal', { on: false });
+  await Zero.host.send('host/start');
+  await Zero.host.waitFor((h) => h.room.phase === 'PICKING');
+  await Zero.host.send('host/skip');
+  await Zero.host.waitFor((h) => h.room.phase === 'WRITING');
+  await Zero.host.send('host/skip');
+  await Zero.host.waitFor((h) => h.room.phase === 'RESULTS');
+  check('no answers at all: skips the vote and says so', Zero.host.room.voteSkipped === true && Zero.host.room.answers.length === 0);
+
   done();
 })().catch((e) => { console.error('FAIL  crashed:', e); process.exit(1); });

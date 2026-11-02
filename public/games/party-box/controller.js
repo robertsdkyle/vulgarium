@@ -292,9 +292,12 @@ function results(room, me) {
   foot('');
   const lr = me.lastRound;
   let line = 'Look at the TV.';
-  if (lr && lr.answered) line = lr.votes ? `Your answer got ${lr.votes} vote${lr.votes === 1 ? '' : 's'} · +${lr.points}` : 'No votes for yours this time.';
+  if (room.voteSkipped || (lr && lr.noVote)) line = 'Not enough answers to vote on this round.';
+  else if (lr && lr.answered) line = lr.votes ? `Your answer got ${lr.votes} vote${lr.votes === 1 ? '' : 's'} · +${lr.points}` : 'No votes for yours this time.';
   else if (lr) line = 'You sat that one out.';
-  paint(`results:${room.round}:${line}`, status('Results are up', line));
+  // Picking a house answer is worth calling out — that's the joke.
+  const fooled = lr && lr.fooled ? 'You voted for an answer the box planted. 📦' : '';
+  paint(`results:${room.round}:${line}:${fooled}`, `${status(fooled ? 'Fooled you!' : 'Results are up', line)}${fooled ? `<p class="hint-sm">${fooled}</p>` : ''}`);
 }
 
 function scores(room, me, perm) {

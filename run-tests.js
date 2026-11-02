@@ -14,7 +14,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const FAST = { T_PICKING: '3', T_WRITING: '4', T_VOTING: '4', T_RESULTS: '1' };
+const FAST = { T_PICKING: '3', T_WRITING: '4', T_VOTING: '4', T_RESULTS: '1', DROP_HOLD: '2' };
 const SUITES = [
   { file: 'test/protocol.js',  label: 'protocol & privacy', env: FAST },
   { file: 'test/reconnect.js', label: 'reconnection',       env: FAST },

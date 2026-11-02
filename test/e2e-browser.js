@@ -130,6 +130,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     check('second MIKE becomes MIKE2', bHead.includes('MIKE2'), bHead);
     await join(C, code, 'Dana');
     await join(D, code, 'Jo');
+    check('TV offers the house-answers toggle', (await text(tv, '#controls')).includes('House answers: on'));
     check('TV lists all four', await until(tv, async () => (await tv.locator('.roster .chip').count()) === 4));
     check('TV shows MIKE as VIP', (await text(tv)).includes('MIKE is the VIP'));
     await shot(tv, 'tv-lobby');
@@ -207,16 +208,16 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     check('everyone answered -> VOTING', await stageHas(A, 'Pick your favorite'));
     const aOpts = await A.locator('.btn-vote').allInnerTexts();
     check("A's own answer is not in A's list", !aOpts.some((t) => t.includes('A-ANSWER')), aOpts.join(' | '));
-    check('A sees the other three', aOpts.length === 3, aOpts.length);
+    check('A sees the other three plus one house answer', aOpts.length === 4, aOpts.length);
     await shot(A, 'phoneA-voting');
     await refresh(A, 'MIKE', 'Pick your favorite', tv);
     const aOpts2 = await A.locator('.btn-vote').allInnerTexts();
-    check('after refresh, still no own answer', aOpts2.length === 3 && !aOpts2.some((t) => t.includes('A-ANSWER')));
+    check('after refresh, still no own answer', aOpts2.length === 4 && !aOpts2.some((t) => t.includes('A-ANSWER')));
     await A.locator('.btn-vote', { hasText: 'B-ANSWER' }).click();
     check('A vote cast', await stageHas(A, 'Vote cast'));
     await refresh(A, 'MIKE', 'Vote cast');
 
-    check('audience gets every answer to vote on', await until(E, async () => (await E.locator('.btn-vote').count()) === 4));
+    check('audience gets every answer to vote on', await until(E, async () => (await E.locator('.btn-vote').count()) === 5));
     await shot(E, 'audience-voting');
     await E.locator('.btn-vote', { hasText: 'D-ANSWER' }).click();
     check('audience vote counted', await stageHas(E, 'Vote counted'));
@@ -232,8 +233,12 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     // ---------------------------------------------------------------
     check('TV reveals names', await until(tv, async () => (await tv.locator('.answer-row .who').count()) >= 4));
     check('TV marks the audience favorite', (await tv.locator('.answer-row.aud-fav').count()) === 1);
+    check('TV reveals the house answer as The Box', (await tv.locator('.answer-row.house').count()) === 1 && (await text(tv)).includes('The Box'));
+    await wait(1500); // let the reveal animation finish before the screenshot
     await shot(tv, 'tv-results');
-    await refresh(B, 'MIKE2', 'Results are up', tv);
+    // The headline is "Results are up" or, if B picked the decoy, "Fooled you!";
+    // either way B's own line mentions votes.
+    await refresh(B, 'MIKE2', 'vote', tv);
     check('B sees their own round result', /vote|No votes/.test(await text(B)), await text(B));
 
     // ---------------------------------------------------------------

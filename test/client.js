@@ -107,9 +107,11 @@ function connect({ code, role = 'player', name = '', userId = crypto.randomUUID(
 }
 
 /** Open a room with a TV plus named players. */
-async function setupRoom(names, { audience = 0 } = {}) {
+async function setupRoom(names, { audience = 0, house = false } = {}) {
   const { code, hostSecret } = await createRoom();
   const host = await connect({ code, role: 'host', name: 'TV', secret: hostSecret });
+  // House answers change vote counts, so suites opt in to them explicitly.
+  if (!house) await host.send('host/house', { on: false });
   const players = [];
   for (const n of names) players.push(await connect({ code, name: n }));
   const aud = [];

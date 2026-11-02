@@ -14,6 +14,8 @@ A phone-as-controller party game. The TV shows the game, everyone's phone is the
 
 **Stuck?** "Write one for me" sits next to Send and submits an answer for you.
 
+**The box lies too.** Every vote has a decoy or two planted by the game, looking just like everyone else's answers. Pick one and you've been fooled — your vote scores for nobody, and the reveal shows it as 📦 The Box. Decoys also mean a round where only one person answered still gets a vote. Switch them off from the TV lobby ("House answers"); edit them in `games/party-box/house.js`.
+
 **Audience.** Once a game is under way (or the room is full), latecomers can join the audience. They vote on answers; the TV shows the tally and highlights the audience favorite. Audience votes don't affect scores.
 
 **App-like phone.** Installable to the home screen, no pinch zoom, big tap targets. A refresh or a locked screen never loses your seat — reload and it's one tap to get back in.
@@ -88,6 +90,8 @@ T_WRITING=60      seconds to write an answer
 T_VOTING=25       seconds to vote
 T_RESULTS=12      seconds on the reveal
 PICKING=1         set to 0 to skip the category pick (server deals instead)
+HOUSE=1           set to 0 to start rooms with house answers off
+DROP_HOLD=30      seconds a dropped player still holds up an early advance
 HOST_GRACE=120    seconds a room survives without its TV
 PLAYER_GRACE=900  seconds a disconnected player keeps their seat mid-game
 LOBBY_GRACE=90    seconds a disconnected player keeps their seat in the lobby
@@ -107,6 +111,7 @@ server/core.js                   rooms, lookup, WebSocket protocol, entities, re
 games/index.js                   which games exist
 games/party-box/logic.js         the game: rules, phases, timers, scoring (server-side)
 games/party-box/dealer.js        prompt pool and dealing
+games/party-box/house.js         the decoy answers the box plants in each vote
 prompts.js                       the prompt deck — edit this one
 templates.js                     frames that expand into more prompts
 seeds.js                         scraps players can borrow while writing
@@ -167,7 +172,7 @@ WS   /rooms/:code/play?role=player|audience|host&name=…&user-id=…
 - **A brief blip** (screen lock, Wi-Fi to cellular) reconnects on its own with backoff. Both screens show a red "Reconnecting" bar meanwhile, and a phone that comes back from a locked screen checks its socket straight away instead of waiting for it to time out.
 - **A reload** lands on a one-tap **Reconnect** card (if the room and seat still exist). The phone sends its saved secret, the server checks it, restores the seat and sends a fresh welcome with `reconnect: true`, and the phone draws the current phase directly — mid-pick, mid-answer (the half-typed draft is kept), after voting, whatever.
 - **The same seat opened twice** (second tab, second phone): the newest wins and the older one shows "Open somewhere else" with a button to take it back.
-- **The game doesn't wait for anyone who's gone.** Advancing early only counts connected players; the phase timer covers the rest.
+- **A short drop doesn't skip your turn.** The round only advances early once everyone has answered (or voted), and someone who dropped in the last 30 seconds still counts as "not done yet" — so a screen lock while you're thinking doesn't send the room to the results without you. Anyone gone longer stops holding things up, and the phase timer always covers everyone.
 - **The TV drops or reloads.** It reclaims the room automatically with its saved secret. The room survives 2 minutes without a TV; the game keeps running on server timers.
 
 Covered by `test/reconnect.js` and the browser run.
