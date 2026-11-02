@@ -2,12 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0b0820">
+<meta name="description" content="Join a Party Box game from your phone.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Party Box">
+<meta name="format-detection" content="telephone=no">
 <title>Party Box</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body class="phone-page">
 <div class="linkbar" id="linkbar" hidden>Reconnecting<span class="waiting-dots"></span></div>
 <div class="phone">
   <div class="pbar-track" id="pbarTrack" hidden><div class="pbar" id="pbar"></div></div>
@@ -15,296 +24,10 @@
     <div class="wordmark">PARTY <b>BOX</b></div>
     <div class="me" id="me"></div>
   </header>
-  <main class="phone-body" id="stage"></main>
+  <main class="phone-body" id="stage">
+    <p class="status"><strong>Loading</strong><span class="waiting-dots"></span></p>
+  </main>
 </div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script>
-const socket = io();
-const stage = document.getElementById('stage');
-const meEl = document.getElementById('me');
-const linkbar = document.getElementById('linkbar');
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-// Prompts carry a ______ blank; render it as a styled slot, not raw underscores.
-const promptHTML = (t) => esc(t || '').replace(/_{3,}/g, '<span class="blank"></span>');
-
-function setLink(up) { linkbar.hidden = !!up; }
-
-// --- The seat token ---------------------------------------------------------
-// This is what makes remote play survive real phones. A screen lock, a walk out
-// of wifi range, or a switch to cellular all kill the socket. The pid is this
-// phone's claim on its seat: we stash it, and on every reconnect we present it
-// to get the same seat, name and score back instead of a fresh anonymous one.
-const SEAT_KEY = 'partybox.seat';
-function saveSeat(code, pid) {
-  try { localStorage.setItem(SEAT_KEY, JSON.stringify({ code, pid })); } catch (_) {}
-}
-function loadSeat() {
-  try { return JSON.parse(localStorage.getItem(SEAT_KEY) || 'null'); } catch (_) { return null; }
-}
-function forgetSeat() {
-  try { localStorage.removeItem(SEAT_KEY); } catch (_) {}
-}
-
-let seated = false;
-
-socket.on('connect', () => {
-  setLink(true);
-  const saved = loadSeat();
-  if (!saved) return;
-  // Reclaim our seat. Runs on first load AND on every reconnect, which is
-  // exactly what makes a dropped phone recoverable.
-  socket.emit('player:resume', saved, (res) => {
-    if (res && res.ok) {
-      seated = true;
-      return;
-    }
-    // Seat is gone (room ended, or we were swept). Fall back to the join form.
-    forgetSeat();
-    seated = false;
-    showJoin(res && res.error ? res.error : '');
-  });
-});
-
-socket.on('disconnect', () => setLink(false));
-
-// Local countdown toward the server's deadline, shown as a slim bar at the
-// top of the phone so players feel the clock. The bar lives outside the
-// swapped-out stage HTML so its animation isn't reset on every state update.
-let countdownTimer = null;
-const pbar = document.getElementById('pbar');
-const pbarTrack = document.getElementById('pbarTrack');
-function runCountdown(deadline, totalSec) {
-  clearInterval(countdownTimer);
-  if (!deadline || !totalSec) { pbarTrack.hidden = true; return; }
-  pbarTrack.hidden = false;
-  const tick = () => {
-    const leftMs = Math.max(0, deadline - Date.now());
-    const left = Math.ceil(leftMs / 1000);
-    const pct = Math.max(0, Math.min(100, (leftMs / (totalSec * 1000)) * 100));
-    pbar.style.width = pct + '%';
-    pbar.classList.toggle('urgent', left <= 5);
-    if (leftMs <= 0) clearInterval(countdownTimer);
-  };
-  tick();
-  countdownTimer = setInterval(tick, 100);
-}
-
-// --- Join screen ------------------------------------------------------------
-// Built as a function rather than static markup, because a player whose seat
-// expired mid-session needs to land back here from any game phase.
-function showJoin(errMsg) {
-  const preset = new URLSearchParams(location.search).get('c') || '';
-  stage.innerHTML = `
-    <div class="field">
-      <label for="code">Room code</label>
-      <input id="code" class="code-input" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="····" value="${esc(preset.toUpperCase().slice(0, 4))}">
-    </div>
-    <div class="field">
-      <label for="name">Your name</label>
-      <input id="name" maxlength="14" autocomplete="off" placeholder="Whatever you want to be called">
-    </div>
-    <p class="error" id="err">${esc(errMsg || '')}</p>
-    <button class="btn-go" id="join">Join the game</button>`;
-  meEl.textContent = '';
-
-  const codeInput = document.getElementById('code');
-  const nameInput = document.getElementById('name');
-  const errEl = document.getElementById('err');
-
-  codeInput.addEventListener('input', () => {
-    codeInput.value = codeInput.value.toUpperCase().replace(/[^A-Z]/g, '');
-    if (codeInput.value.length === 4) nameInput.focus();
-  });
-
-  document.getElementById('join').onclick = () => {
-    const code = codeInput.value.trim();
-    const name = nameInput.value.trim();
-    if (code.length !== 4) return (errEl.textContent = 'The code is four letters, shown on the TV.');
-    if (!name) return (errEl.textContent = 'Pick a name so people know who you are.');
-    errEl.textContent = '';
-    socket.emit('player:join', { code, name }, (res) => {
-      if (!res || !res.ok) return (errEl.textContent = (res && res.error) || 'Could not join.');
-      // Hold onto the seat so a dropped connection can reclaim it.
-      saveSeat(res.code, res.pid);
-      seated = true;
-    });
-  };
-}
-
-// If we have no seat to reclaim, the join form is the landing screen.
-if (!loadSeat()) showJoin();
-
-// --- In-game ---
-socket.on('state', (s) => {
-  meEl.innerHTML = `${esc(s.you.name)} · <span class="pts">${s.you.score}</span>`;
-
-  // Show the countdown bar only while this player still has something to do.
-  const myTurnActive =
-    (s.phase === 'WRITING' && !s.you.answer) ||
-    (s.phase === 'VOTING' && !s.you.votedFor);
-  const total = s.durations ? s.durations[s.phase] : null;
-  runCountdown(myTurnActive ? s.deadline : null, total);
-
-  if (s.phase === 'LOBBY') {
-    // Use the wait for other players to collect one detail about themselves.
-    // Both parts are optional — skipping is a normal outcome, not a failure.
-    const answered = !!s.you.setupA;
-    const opted = s.you.allowPersonal !== false;
-    const key = `lobby:${answered}:${opted}:${s.you.setupAsk || ''}`;
-    if (stage.dataset.key === key) return;
-    stage.dataset.key = key;
-
-    if (!opted) {
-      stage.innerHTML = `
-        <p class="status"><strong>You're in</strong>Your name is off the list for personal prompts.</p>
-        <button class="btn-vote" id="optin">Actually, use my name</button>`;
-      document.getElementById('optin').onclick = () =>
-        socket.emit('player:setup', { allowPersonal: true });
-      return;
-    }
-
-    if (answered || !s.you.setupAsk) {
-      stage.innerHTML = `
-        <p class="status"><strong>You're in</strong>Watch the TV — the game starts when everyone's here.</p>
-        ${answered ? `<p class="ph-lab">Your answer: ${esc(s.you.setupA)}</p>
-        <button class="btn-vote" id="redo">Change it</button>` : ''}
-        <button class="btn-vote" id="optout">Leave me out of personal prompts</button>`;
-      const redo = document.getElementById('redo');
-      if (redo) redo.onclick = () => socket.emit('player:setup', { answer: '' });
-      document.getElementById('optout').onclick = () =>
-        socket.emit('player:setup', { allowPersonal: false, answer: '' });
-      return;
-    }
-
-    // Showing the stem as a visible prefix is what keeps answers grammatical.
-    // People complete the sentence instead of writing a fresh one, so what
-    // comes back always slots into the frames on the server.
-    stage.innerHTML = `
-      <p class="ph-lab">One question before we start</p>
-      <p class="prompt-text">${esc(s.you.setupAsk)}</p>
-      <div class="stem-field">
-        <span class="stem">${esc(s.you.setupStem || '')}</span>
-        <input id="setup" maxlength="60" autocomplete="off" autocapitalize="none"
-               placeholder="${esc(s.you.setupHint || '')}">
-      </div>
-      <p class="hint-sm">Finish the sentence. It becomes a prompt about you later — everyone else has to fill in the blank.</p>
-      <button class="btn-go" id="setupSend">Lock it in</button>
-      <button class="btn-vote" id="skip">Skip this</button>`;
-    const input = document.getElementById('setup');
-    const send = () => {
-      const v = input.value.trim();
-      if (v) socket.emit('player:setup', { answer: v });
-    };
-    document.getElementById('setupSend').onclick = send;
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
-    document.getElementById('skip').onclick = () => socket.emit('player:setup', { answer: '' });
-    return;
-  }
-
-  if (s.phase === 'WRITING') {
-    if (s.you.answer) {
-      stage.dataset.key = 'locked' + s.round;
-      stage.innerHTML = `<p class="status"><strong>Answer locked in</strong>Waiting on everyone else<span class="waiting-dots"></span></p>`;
-      return;
-    }
-    // A broadcast fires every time ANY player submits. Without this guard,
-    // re-rendering here would wipe the textarea of everyone still typing —
-    // and blow away the seeds they'd tapped in. Only build the screen once
-    // per round; the countdown lives outside `stage` and keeps ticking.
-    const wKey = 'write' + s.round;
-    if (stage.dataset.key === wKey && document.getElementById('ans')) return;
-    stage.dataset.key = wKey;
-
-    const seeds = (s.you.seeds || []);
-    stage.innerHTML = `
-      <p class="prompt-text">${promptHTML(s.prompt)}</p>
-      <div class="field">
-        <textarea id="ans" rows="3" maxlength="90" placeholder="Make it good"></textarea>
-      </div>
-      ${seeds.length ? `
-      <div class="seeds">
-        <p class="ph-lab">Stuck? Borrow one</p>
-        <div class="seed-chips">
-          ${seeds.map((w) => `<button class="seed" type="button">${esc(w)}</button>`).join('')}
-        </div>
-      </div>` : ''}
-      <button class="btn-go" id="send">Send it</button>`;
-    const ta = document.getElementById('ans');
-    ta.focus();
-
-    // Tapping a seed drops it in at the cursor rather than replacing what's
-    // there, so you can stack two of them or bolt one onto your own idea.
-    // It stays your answer — the seed is a starting point, not a card you play.
-    stage.querySelectorAll('.seed').forEach((chip) => {
-      chip.onclick = () => {
-        const word = chip.textContent;
-        const start = ta.selectionStart ?? ta.value.length;
-        const end = ta.selectionEnd ?? ta.value.length;
-        const before = ta.value.slice(0, start);
-        const after = ta.value.slice(end);
-        const pad = before && !/\s$/.test(before) ? ' ' : '';
-        ta.value = (before + pad + word + after).slice(0, 90);
-        const caret = Math.min((before + pad + word).length, 90);
-        ta.focus();
-        ta.setSelectionRange(caret, caret);
-        chip.classList.add('used');
-      };
-    });
-
-    const send = () => {
-      const text = ta.value.trim();
-      if (text) socket.emit('player:answer', { text });
-    };
-    document.getElementById('send').onclick = send;
-    ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
-    return;
-  }
-
-  if (s.phase === 'VOTING') {
-    if (s.you.votedFor) {
-      stage.dataset.key = 'voted' + s.round;
-      stage.innerHTML = `<p class="status"><strong>Vote cast</strong>Waiting on everyone else<span class="waiting-dots"></span></p>`;
-      return;
-    }
-    // Same guard: don't rebuild the list under someone's thumb every time
-    // another player votes.
-    const vKey = 'vote' + s.round + ':' + s.answers.length;
-    if (stage.dataset.key === vKey) return;
-    stage.dataset.key = vKey;
-
-    const options = s.answers.filter((a) => a.pid !== s.you.pid);
-    stage.innerHTML = `
-      <p class="prompt-text">${promptHTML(s.prompt)}</p>
-      <p class="eyebrow">Pick your favorite</p>
-      <div class="vote-list">
-        ${options.map((a) => `<button class="btn-vote" data-id="${a.pid}">${esc(a.text)}</button>`).join('')}
-      </div>`;
-    stage.querySelectorAll('.btn-vote').forEach((b) => {
-      b.onclick = () => socket.emit('player:vote', { targetId: b.dataset.id });
-    });
-    return;
-  }
-
-  if (s.phase === 'RESULTS') {
-    stage.innerHTML = `<p class="status"><strong>Results are up</strong>Look at the TV.</p>`;
-    return;
-  }
-
-  if (s.phase === 'SCORES') {
-    const ranked = [...s.players].sort((a, b) => b.score - a.score);
-    const place = ranked.findIndex((p) => p.pid === s.you.pid) + 1;
-    stage.innerHTML = `<p class="status"><strong>You finished #${place}</strong>${s.you.score} points.</p>`;
-  }
-});
-
-socket.on('room:closed', ({ reason } = {}) => {
-  // The room is genuinely gone, so the stored seat is worthless now.
-  forgetSeat();
-  seated = false;
-  stage.innerHTML = `<p class="status"><strong>Game over</strong>${esc(reason || 'The room closed.')} Reload to join a new one.</p>`;
-  meEl.textContent = '';
-});
-</script>
+<script type="module" src="/js/phone.js"></script>
 </body>
 </html>

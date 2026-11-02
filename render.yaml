@@ -1,0 +1,12 @@
+# Optional Render Blueprint. An existing service configured in the Render
+# dashboard (build: npm install, start: npm start) works without this file.
+services:
+  - type: web
+    name: party-box
+    runtime: node
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

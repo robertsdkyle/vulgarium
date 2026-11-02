@@ -4,6 +4,8 @@
  *
  *   npm test
  *
+ * Suites speak the WebSocket protocol through test/client.js.
+ *
  * Each suite gets a fresh server so one suite's leftover rooms or used-prompt
  * history can't influence the next.
  */
@@ -12,11 +14,13 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
+const FAST = { T_PICKING: '3', T_WRITING: '4', T_VOTING: '4', T_RESULTS: '1', DROP_HOLD: '2' };
 const SUITES = [
-  { file: 'test-reconnect.js', label: 'reconnection',     env: { T_WRITING: '4', T_VOTING: '4', T_RESULTS: '1' } },
-  { file: 'test-seeds.js',     label: 'answer seeds',     env: { T_WRITING: '4', T_VOTING: '3', T_RESULTS: '1' } },
-  { file: 'test-dealer.js',    label: 'prompt dealing',   env: { T_WRITING: '2', T_VOTING: '2', T_RESULTS: '1' } },
-  { file: 'test-personal.js',  label: 'personal prompts', env: { T_WRITING: '2', T_VOTING: '2', T_RESULTS: '1' } },
+  { file: 'test/protocol.js',  label: 'protocol & privacy', env: FAST },
+  { file: 'test/reconnect.js', label: 'reconnection',       env: FAST },
+  { file: 'test/seeds.js',     label: 'answer seeds',       env: FAST },
+  { file: 'test/dealer.js',    label: 'prompt dealing',     env: FAST },
+  { file: 'test/personal.js',  label: 'personal prompts',   env: FAST },
 ];
 
 const USED = path.join(__dirname, '.used-prompts.json');
@@ -52,7 +56,7 @@ function runSuite(file) {
   for (const suite of SUITES) {
     try { fs.unlinkSync(USED); } catch (_) {}
     const srv = startServer(suite.env);
-    await wait(1800);
+    await wait(1200);
 
     const { code, out } = await runSuite(suite.file);
     srv.kill();
@@ -74,7 +78,7 @@ function runSuite(file) {
   try { fs.unlinkSync(USED); } catch (_) {}
 
   console.log('\n' + '─'.repeat(46));
-  for (const s of summary) console.log(`  ${s.ok ? '✓' : '✗'}  ${s.label.padEnd(20)} ${s.line}`);
+  for (const s of summary) console.log(`  ${s.ok ? '✓' : '✗'}  ${s.label.padEnd(22)} ${s.line}`);
   console.log('─'.repeat(46));
   console.log(failed ? `\n${failed} suite(s) failed\n` : '\nAll suites passed\n');
   process.exit(failed ? 1 : 0);

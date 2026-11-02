@@ -6,9 +6,19 @@ A phone-as-controller party game. The TV shows the game, everyone's phone is the
 
 **Hands-free by default.** Every phase runs on a timer, so the game plays itself start to finish — you never have to touch the laptop mid-game. Players see a countdown; if everyone finishes early, it advances immediately instead of waiting. There's also a **Skip ahead** button on the TV if you want to jump forward.
 
-**Scan to join.** The lobby shows a QR code alongside the room code. Phones scan it and land on a join screen with the code already filled in — no typing the address at all.
+**Scan to join.** The lobby shows a QR code alongside the room code. Phones scan it and land on a join screen with the code already filled in — no typing the address at all. As soon as four letters are in, the phone looks the room up and says what it is ("Party Box · 3/10 players · in the lobby") before anything connects.
 
-Tested end to end: full game with a host plus three players, QR generation, and timer expiry with a player who never responds (the game advances past them and never stalls).
+**Someone picks the topic.** Each normal round, one player (rotating) chooses the category on their phone while everyone else sees "MIKE is picking". Categories already played this game show up crossed out.
+
+**Run from a phone.** The first player in is the VIP and can start the game, and start the next one, from their phone. The TV buttons still work too.
+
+**Stuck?** "Write one for me" sits next to Send and submits an answer for you.
+
+**The box lies too.** Every vote has a decoy or two planted by the game, looking just like everyone else's answers. Pick one and you've been fooled — your vote scores for nobody, and the reveal shows it as 📦 The Box. Decoys also mean a round where only one person answered still gets a vote. Switch them off from the TV lobby ("House answers"); edit them in `games/party-box/house.js`.
+
+**Audience.** Once a game is under way (or the room is full), latecomers can join the audience. They vote on answers; the TV shows the tally and highlights the audience favorite. Audience votes don't affect scores.
+
+**App-like phone.** Installable to the home screen, no pinch zoom, big tap targets. A refresh or a locked screen never loses your seat — reload and it's one tap to get back in.
 
 ---
 
@@ -25,7 +35,15 @@ To check everything works before a party:
 npm test
 ```
 
-That boots its own server and runs all four suites — 62 assertions covering reconnection, seed privacy, prompt dealing and personal prompts. Takes about a minute.
+That boots its own server and runs five suites — 142 assertions covering the wire protocol and privacy boundaries, reconnection, seed privacy, prompt dealing and personal prompts. Takes about a minute and a half.
+
+There's also a full browser run — a TV, four phones and an audience member, each its own browser profile, refreshing and reconnecting in every phase:
+
+```bash
+npm run test:e2e
+```
+
+It needs Playwright with Chromium (`npm i -D playwright && npx playwright install chromium`) and saves screenshots to `e2e-shots/`.
 
 The console prints two addresses:
 
@@ -56,7 +74,9 @@ This is what Jackbox actually does, and it's the better choice for a party in on
 
 Players on different networks, anywhere.
 
-**Render / Railway / Fly.io:** push to GitHub, point the service at the repo, build `npm install`, start `npm start`. The server already reads `process.env.PORT`, and the client connects with a relative URL so it upgrades to secure WSS automatically. Nothing to configure.
+**Render / Railway / Fly.io:** push to GitHub, point the service at the repo, build `npm install`, start `npm start`. The server already reads `process.env.PORT`, and the client builds its WebSocket URL from the page's own address, so on HTTPS it uses secure `wss://` automatically. Nothing to configure. Render supports WebSockets on ordinary web services; there's a `render.yaml` in the repo if you'd rather define the service as a Blueprint, but an existing dashboard-configured service keeps working as-is.
+
+**Deploys end games in progress.** Rooms live in memory, so a deploy or restart drops every room; phones that try to reconnect are told the room ended. Deploy between game nights.
 
 **No database needed.** Rooms live in memory and die with the game, so you skip the managed-Postgres line item that dominates most hosting bills. Bandwidth is negligible — this is a text game.
 
@@ -65,32 +85,45 @@ Players on different networks, anywhere.
 **Tunables** (environment variables, all optional):
 
 ```
+T_PICKING=12      seconds for the picker to choose a category
 T_WRITING=60      seconds to write an answer
 T_VOTING=25       seconds to vote
 T_RESULTS=12      seconds on the reveal
-HOST_GRACE=120    seconds a room survives without its host
-PLAYER_GRACE=900  seconds a disconnected player keeps their seat
+PICKING=1         set to 0 to skip the category pick (server deals instead)
+HOUSE=1           set to 0 to start rooms with house answers off
+DROP_HOLD=30      seconds a dropped player still holds up an early advance
+HOST_GRACE=120    seconds a room survives without its TV
+PLAYER_GRACE=900  seconds a disconnected player keeps their seat mid-game
+LOBBY_GRACE=90    seconds a disconnected player keeps their seat in the lobby
 ```
 
 **Health check:** `GET /healthz` returns `{ok: true, rooms: N}` — point your host's monitor at it.
 
-**Scaling:** one instance holds a lot. Past that you'd need the socket.io Redis adapter plus sticky sessions, since rooms are per-process.
+**Scaling:** one instance holds a lot. Rooms are per-process, so past one instance you'd need to route every connection for a room code to the same instance (e.g. hash the code in the path `/rooms/:code/…` to a backend).
 
 ---
 
 ## Files
 
 ```
-server.js           game state machine, identity, timers, sockets
-prompts.js          the prompt deck — edit this one
-templates.js        frames that expand into more prompts
-seeds.js            scraps players can borrow while writing
-personal.js         lobby questions and the frames they feed
-run-tests.js        runs every test suite (npm test)
-public/host.html    the TV screen
-public/index.html   the phone controller
-public/style.css    both screens
-test-*.js           four suites, 62 assertions
+server.js                        boots Express + the realtime core
+server/core.js                   rooms, lookup, WebSocket protocol, entities, reconnects
+games/index.js                   which games exist
+games/party-box/logic.js         the game: rules, phases, timers, scoring (server-side)
+games/party-box/dealer.js        prompt pool and dealing
+games/party-box/house.js         the decoy answers the box plants in each vote
+prompts.js                       the prompt deck — edit this one
+templates.js                     frames that expand into more prompts
+seeds.js                         scraps players can borrow while writing
+personal.js                      lobby questions and the frames they feed
+public/index.html, js/phone.js   phone shell: lookup, join, reconnect
+public/host.html, js/tv.js       TV shell: create/reclaim a room
+public/js/realtime.js            browser side of the protocol (shared)
+public/games/party-box/          the game's phone controller and TV view
+public/manifest.webmanifest, sw.js, icons/   installable phone app
+test/*.js                        protocol, reconnect, seeds, dealer, personal suites
+test/e2e-browser.js              full browser run (npm run test:e2e)
+run-tests.js                     runs every suite (npm test)
 ```
 
 ## Make it yours
@@ -104,41 +137,45 @@ test-*.js           four suites, 62 assertions
 
 **On religion, politics and money:** these aim at the machinery, never at a side. Corruption, hypocrisy, fundraising, spin and bureaucracy are funny to everyone in the room; "your team is stupid" is only funny to half of it. Brutal doesn't mean partisan. No real names anywhere, deliberately — named targets date fast and start arguments instead of jokes.
 
-**Timers** — the `TIMERS` object near the top of `server.js`: `WRITING` (60s), `VOTING` (25s), `RESULTS` (12s), all in seconds. Bump `WRITING` up if people need more time to think, or drop `RESULTS` if the reveal drags. You can also override them without editing the file — set `T_WRITING`, `T_VOTING`, or `T_RESULTS` when starting, e.g. `T_WRITING=90 npm start`.
+**Timers** — the `TIMERS` object near the top of `games/party-box/logic.js`: `PICKING` (12s), `WRITING` (60s), `VOTING` (25s), `RESULTS` (12s), all in seconds. You can also override them without editing the file — `T_PICKING`, `T_WRITING`, `T_VOTING`, `T_RESULTS`, e.g. `T_WRITING=90 npm start`.
 
-**Length and scoring** — `ROUNDS` and `POINTS_PER_VOTE`, same spot.
-
-**Player cap** — currently 10, in the `player:join` handler.
+**Length, scoring, player cap** — `ROUNDS`, `POINTS_PER_VOTE` and `MAX_PLAYERS`, same spot.
 
 ## Adding the other game modes
 
-The architecture is already set up for it. `room.phase` drives everything, and both screens are just switch statements over the phase. To add Fibbage:
+Each game is two halves, and the core never needs to change:
 
-1. Add a `truth` field to the room and prompts that carry a real answer
-2. In `WRITING`, players submit lies instead of jokes
-3. In `VOTING`, shuffle the truth in with the lies
-4. Score two ways: points for fooling someone, points for finding the truth
+1. **Server:** `games/<type>/logic.js` exports `{ type, title, maxPlayers, audience, create(ctx) }`. The game keeps its own state, handles messages in `onMessage(actor, opcode, payload)`, and describes what each screen should see in `views()` — `room`, `audience`, `host`, and one private view per player. After any change it calls `ctx.sync()`. Register it in `games/index.js`.
+2. **Browser:** `public/games/<type>/controller.js` (the phone) and `public/games/<type>/tv.js` (the TV). The shells load them on demand from the game type the server reports, so a phone only ever downloads the game it's playing.
 
-That's maybe 40 lines. Trivia is even less — swap voting for a first-correct timer.
+To add something like Fibbage: copy `games/party-box`, give the room a `truth`, have `WRITING` collect lies, mix the truth into the voting `choices`, and score for fooling people and for finding the truth. Then have the TV pass `?game=<type>` when creating a room (`/host?game=<type>`), or add a picker.
 
-Add a `room.gameType` field and a game picker on the lobby screen and you've got the full pack.
+## Realtime protocol
 
+```
+GET  /rooms/:code   -> { exists, game, title, phase, joinable, full, inProgress, audience, players, maxPlayers }
+POST /rooms         -> { code, hostSecret }                         (the TV)
+WS   /rooms/:code/play?role=player|audience|host&name=…&user-id=…
+```
+
+- **Lookup first.** The phone asks `GET /rooms/:code` as soon as four letters are typed and only opens the WebSocket on Join.
+- **Identity in the URL.** `user-id` is a UUID made once per device and kept in localStorage. Duplicate names get a number (`MIKE` → `MIKE2`). The one thing *not* in the URL is the reconnect secret — URLs end up in proxy logs — so the first frame is `hello { secret }`.
+- **Envelope.** Every server frame is `{ seq, opcode, payload }`. `seq` goes up by one per frame on each connection, starting from the welcome; a client that ever sees a gap asks for `resync` and gets a fresh snapshot. (Counting per connection rather than per room means a private message to one phone doesn't look like a gap to every other phone.)
+- **Welcome = full snapshot.** `welcome` carries your seat id, your secret, `reconnect: true|false`, who's `here` (with roles), the server clock, and every entity you're allowed to see.
+- **Entities.** State travels as whole JSON entities with versions: `room` and `audience` (shared), `host` (TV only), `player:<user-id>` and `audience:<user-id>` (that one device only). Each update resends the whole entity with `version + 1`, and clients ignore anything not newer than what they hold. The game never sends anything itself — it calls `ctx.sync()` and the core sends only the entities that changed, only to the clients allowed to see them. That rule lives in one function (`canSee` in `server/core.js`).
+- **Requests.** Client frames are `{ opcode, payload, rid }`; the server answers `reply { rid, ok, error? }`. A refused request (not your turn, already voted, your own answer) comes back as `ok: false`.
+- **Refusals** arrive as an `error { code, message }` frame (`seat-taken`, `room-not-found`, `room-full`, `in-progress`, `replaced`, `room-closed`…), then the socket closes with a 4000-range code (`4003` wrong secret, `4004` no such room, `4009` full / in progress, `4001` opened elsewhere, `4010` room closed). Clients reconnect automatically after an accidental drop, never after a refusal. The `error` frame is what counts: Render's proxy replaces custom close codes with `1006`, so a client that only looked at the code would retry a refusal forever.
 
 ## Reconnection
 
-Players are identified by a `pid` token their own browser holds, not by their socket connection. This is what makes remote play survive real phones — a screen lock, a walk out of wifi range, or a hop to cellular all kill the socket, and without a stable token each one would cost that player their seat and score.
+- **A player drops.** Their seat, name, score, answer and vote stay put. The TV shows them dimmed with "reconnecting…". Mid-game they keep the seat for 15 minutes; in the lobby, 90 seconds.
+- **A brief blip** (screen lock, Wi-Fi to cellular) reconnects on its own with backoff. Both screens show a red "Reconnecting" bar meanwhile, and a phone that comes back from a locked screen checks its socket straight away instead of waiting for it to time out.
+- **A reload** lands on a one-tap **Reconnect** card (if the room and seat still exist). The phone sends its saved secret, the server checks it, restores the seat and sends a fresh welcome with `reconnect: true`, and the phone draws the current phase directly — mid-pick, mid-answer (the half-typed draft is kept), after voting, whatever.
+- **The same seat opened twice** (second tab, second phone): the newest wins and the older one shows "Open somewhere else" with a button to take it back.
+- **A short drop doesn't skip your turn.** The round only advances early once everyone has answered (or voted), and someone who dropped in the last 30 seconds still counts as "not done yet" — so a screen lock while you're thinking doesn't send the room to the results without you. Anyone gone longer stops holding things up, and the phase timer always covers everyone.
+- **The TV drops or reloads.** It reclaims the room automatically with its saved secret. The room survives 2 minutes without a TV; the game keeps running on server timers.
 
-What happens on a drop:
-
-- **A player drops.** Their seat, name, score, answer and vote all stay put. The roster shows them greyed out. When their phone comes back it presents the pid and picks up exactly where it left off. They keep the seat for 15 minutes by default.
-- **The game doesn't wait for them.** Round advancement only counts connected players, and the phase timer covers the rest, so one person wandering off never stalls the room.
-- **The host drops.** The room survives for 2 minutes, so a TV reload or a blip doesn't end the party. The game keeps running on server timers; the host sees current state when it returns.
-- **Anything genuinely dead** gets cleaned up by a sweep that runs every minute, so a long-running server doesn't leak memory.
-
-Both screens show a red "Reconnecting" bar while the socket is down, and nothing on screen gets wiped — the state reappears when the connection returns.
-
-Covered by `test-reconnect.js`: 19 assertions across seat reclamation, vote survival, rejected tokens, host reload, and host-drop tolerance.
-
+Covered by `test/reconnect.js` and the browser run.
 
 ## Seeds
 
