@@ -8,6 +8,19 @@
  * just happens to be the one screen everybody looks at.
  */
 import { Realtime, lookupRoom, deviceId, store, esc } from './realtime.js';
+import { soundOn, audioReady, setSound, onSoundChange } from './celebrate.js';
+
+// Sound toggle. Browsers keep audio locked until the page is clicked, so if
+// the TV was reloaded mid-game the button says so and one click fixes it.
+const soundBtn = document.getElementById('soundBtn');
+function paintSound() {
+  if (!soundOn()) { soundBtn.textContent = '🔇 Sound off'; soundBtn.className = 'sound-btn'; return; }
+  if (!audioReady()) { soundBtn.textContent = '🔈 Click for sound'; soundBtn.className = 'sound-btn nudge'; return; }
+  soundBtn.textContent = '🔊'; soundBtn.className = 'sound-btn';
+}
+soundBtn.onclick = () => setSound(!(soundOn() && audioReady()) ? true : false);
+onSoundChange(paintSound);
+paintSound();
 
 const els = {
   stage: document.getElementById('stage'),

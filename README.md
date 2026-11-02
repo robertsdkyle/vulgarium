@@ -18,6 +18,8 @@ A phone-as-controller party game. The TV shows the game, everyone's phone is the
 
 **Audience.** Once a game is under way (or the room is full), latecomers can join the audience. They vote on answers; the TV shows the tally and highlights the audience favorite. Audience votes don't affect scores.
 
+**Winners get a moment.** Each round's top answer is highlighted on the TV with a confetti burst and a chime, and its writer's phone buzzes. At the end the TV crowns the winner in big type (ties share the crown) over a medal table, with confetti and a synthesized fanfare and cheer — no audio files, all generated in the browser. Browsers only allow sound after a click, so the TV's 🔊 button shows "Click for sound" if it needs one; it also mutes.
+
 **App-like phone.** Installable to the home screen, no pinch zoom, big tap targets. A refresh or a locked screen never loses your seat — reload and it's one tap to get back in.
 
 ---
@@ -119,6 +121,7 @@ personal.js                      lobby questions and the frames they feed
 public/index.html, js/phone.js   phone shell: lookup, join, reconnect
 public/host.html, js/tv.js       TV shell: create/reclaim a room
 public/js/realtime.js            browser side of the protocol (shared)
+public/js/celebrate.js           confetti, party sounds, winner buzz (shared)
 public/games/party-box/          the game's phone controller and TV view
 public/manifest.webmanifest, sw.js, icons/   installable phone app
 test/*.js                        protocol, reconnect, seeds, dealer, personal suites

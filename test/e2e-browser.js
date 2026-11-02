@@ -234,6 +234,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     check('TV reveals names', await until(tv, async () => (await tv.locator('.answer-row .who').count()) >= 4));
     check('TV marks the audience favorite', (await tv.locator('.answer-row.aud-fav').count()) === 1);
     check('TV reveals the house answer as The Box', (await tv.locator('.answer-row.house').count()) === 1 && (await text(tv)).includes('The Box'));
+    check('TV highlights the round winner', (await tv.locator('.answer-row.round-win').count()) >= 1 && (await tv.locator('.round-banner').count()) === 1);
+    check('confetti fired for the round winner', await until(tv, async () => (await tv.locator('canvas.confetti').count()) === 1, 3000));
     await wait(1500); // let the reveal animation finish before the screenshot
     await shot(tv, 'tv-results');
     // The headline is "Results are up" or, if B picked the decoy, "Fooled you!";
@@ -252,7 +254,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     await shot(B, 'phoneB-picking-disabled');
 
     // Hurry through the rest from the TV.
-    for (let i = 0; i < 12 && !(await text(tv)).includes(' wins'); i++) {
+    for (let i = 0; i < 12 && !(await tv.locator('.winner-hero').count()); i++) {
       if (await tv.locator('#skip').count()) await tv.click('#skip');
       await wait(350);
     }
@@ -260,10 +262,16 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     // ---------------------------------------------------------------
     log('\n[10] SCORES');
     // ---------------------------------------------------------------
-    check('TV shows the winner', await stageHas(tv, ' wins'));
+    check('TV shows the winner', await until(tv, async () => (await tv.locator('.winner-hero .hero-name').count()) >= 1));
+    const heroName = (await tv.locator('.hero-name').first().innerText()).trim();
+    const topRow = (await tv.locator('.final-board .score-row').first().innerText()).replace(/\s+/g, ' ');
+    check('winner banner matches the top of the table', topRow.includes(heroName.replace(/^\S+\s/, '')), `${heroName} | ${topRow}`);
+    check('winner row is highlighted', (await tv.locator('.final-board .score-row.is-winner').count()) >= 1);
+    check('TV has a sound toggle', (await tv.locator('#soundBtn').count()) === 1);
+    await wait(1200);
     await shot(tv, 'tv-scores');
-    await refresh(C, 'Dana', 'You', null);
-    check('Dana sees her placing after refresh', /You (won|finished)/.test(await text(C)), await text(C));
+    await refresh(C, 'Dana', 'points', null);
+    check('Dana sees her placing after refresh', /You (won|finished|tied)|Tied for/.test(await text(C)), await text(C));
     check('VIP can start another game', await until(A, async () => (await A.locator('#again').count()) === 1));
 
     // ---------------------------------------------------------------

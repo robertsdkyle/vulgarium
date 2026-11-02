@@ -3,12 +3,25 @@
  * entities plus the TV-only `host` entity. Never sees anyone's private data.
  */
 import { esc, promptHTML } from '/js/realtime.js';
+import { confetti, confettiFrom, playRoundWin, playFanfare } from '/js/celebrate.js';
 
 let els = null;
 let api = null;
 let countdownTimer = null;
 let countdownFor = null;
 let lastScene = '';
+let celebrated = '';   // scene we last threw confetti for, so re-renders don't repeat it
+
+const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
+const MEDALS = { 1: '🥇', 2: '🥈', 3: '🥉' };
+const names = (list) => list.length <= 2 ? list.join(' & ') : `${list.slice(0, -1).join(', ')} & ${list[list.length - 1]}`;
+
+/** Fire a celebration once per scene, after the reveal animation has played. */
+function celebrateOnce(key, fn, delay = 0) {
+  if (celebrated === key) return;
+  celebrated = key;
+  setTimeout(fn, delay);
+}
 
 export function mount(e, a) { els = e; api = a; }
 
@@ -139,38 +152,69 @@ export function render({ room, host, audience }) {
 
     case 'RESULTS': {
       const counts = (audience && audience.counts) || {};
-      const ranked = [...room.answers].sort((a, b) => b.votes.length - a.votes.length);
+      // Round winners first, then by votes; the box sinks below players on a tie.
+      const ranked = [...room.answers].sort((a, b) =>
+        (b.winner - a.winner) || (b.votes.length - a.votes.length) || (a.isHouse - b.isHouse));
       const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+      const winners = ranked.filter((a) => a.winner);
+      const houseTop = ranked.find((a) => a.isHouse && a.votes.length && a.votes.length >= Math.max(0, ...winners.map((w) => w.votes.length)));
+      const banner = winners.length
+        ? `<p class="round-banner">🏆 ${esc(names(winners.map((w) => w.name)))} ${winners.length > 1 ? 'tie for' : 'takes'} the round!</p>`
+        : '';
       els.stage.innerHTML = `
         <div class="prompt-card ${ranked.length > 4 ? 'compact' : ''}"><p class="prompt-text">${promptHTML(room.prompt)}</p></div>
+        ${banner}
         <div class="answer-list ${ranked.length > 8 ? 'many lots' : ranked.length > 4 ? 'many' : ''}">
           ${ranked.length ? ranked.map((a, i) => `
-            <div class="answer-row ${top && top[0] === a.id ? 'aud-fav' : ''} ${a.isHouse ? 'house' : ''}" style="animation-delay:${i * 0.12}s">
-              <span>${esc(a.text)}</span>
-              <span class="who">${a.isHouse ? '📦 ' : ''}${esc(a.name || '')}</span>
-              <span class="votes">${a.votes.length ? (a.isHouse ? 'fooled ' : '') + esc(a.votes.join(', ')) : '—'}${counts[a.id] ? `<br><span class="aud">${counts[a.id]} audience</span>` : ''}</span>
+            <div class="answer-row ${a.winner ? 'round-win' : ''} ${top && top[0] === a.id ? 'aud-fav' : ''} ${a.isHouse ? 'house' : ''}" data-id="${esc(a.id)}" style="animation-delay:${i * 0.12}s">
+              <span>${a.winner ? '<span class="win-badge">★ Winner</span>' : ''}${esc(a.text)}</span>
+              <span class="who">${a.isHouse ? '📦 ' : ''}${esc(a.name || '')}${a.points ? ` <span class="gain">+${a.points}</span>` : ''}</span>
+              <span class="votes">${a.votes.length ? (a.isHouse ? 'fooled ' : '') + esc(a.votes.join(', ')) : '—'}${counts[a.id] ? `<br><span class="aud">👏 ${counts[a.id]} audience</span>` : ''}</span>
             </div>`).join('') : '<p class="hint">Nobody answered this round.</p>'}
         </div>
         ${room.voteSkipped && ranked.length ? '<p class="hint">Not enough answers to vote on this round.</p>' : ''}
-        ${ranked.some((a) => a.isHouse) ? '<p class="hint">📦 = planted by the box. Anyone who picked one got fooled.</p>' : ''}
-        ${top ? '<p class="hint">Highlighted: the audience favorite.</p>' : ''}
+        ${houseTop ? `<p class="hint">📦 The box fooled ${esc(names(houseTop.votes))}!</p>` : ranked.some((a) => a.isHouse) ? '<p class="hint">📦 = planted by the box. Anyone who picked one got fooled.</p>' : ''}
+        ${top ? '<p class="hint">👏 = the audience favorite.</p>' : ''}
         ${goneNote}`;
+      if (winners.length) {
+        celebrateOnce(`results:${room.round}`, () => {
+          for (const w of winners) confettiFrom(els.stage.querySelector(`.answer-row[data-id="${CSS.escape(w.id)}"]`), 60);
+          playRoundWin();
+        }, 450);
+      }
       controls([skip(room.round >= room.totalRounds ? 'Skip to final scores' : 'Skip to next round')]);
       return;
     }
 
     case 'SCORES': {
-      const ranked = [...room.players].sort((a, b) => b.score - a.score);
+      const standings = room.standings || [...room.players].sort((a, b) => b.score - a.score).map((p, i) => ({ ...p, rank: i + 1, winner: i === 0 }));
+      const champs = standings.filter((p) => p.winner);
+      const tie = champs.length > 1;
       els.stage.innerHTML = `
-        <h1 class="winner">${esc(ranked[0] ? ranked[0].name : '')} wins</h1>
-        <div class="scoreboard">
-          ${ranked.map((p, i) => `
-            <div class="score-row">
-              <span class="rank">${i + 1}</span>
-              <span>${avatar(p)}${esc(p.name)}</span>
-              <span class="pts">${p.score}</span>
-            </div>`).join('')}
+        <div class="final">
+          <div class="winner-hero">
+            <p class="eyebrow">${tie ? "It's a tie!" : 'And the winner is'}</p>
+            <div class="crown" aria-hidden="true">👑</div>
+            <div class="hero-names">
+              ${champs.map((c) => `<div class="hero-name">${avatar(c)}<span>${esc(c.name)}</span></div>`).join('')}
+            </div>
+            <p class="hero-pts">${champs[0] ? champs[0].score : 0} points</p>
+          </div>
+          <div class="scoreboard final-board ${standings.length > 6 ? 'tight' : ''}">
+            ${standings.map((p, i) => `
+              <div class="score-row ${p.winner ? 'is-winner' : ''}" style="animation-delay:${0.4 + i * 0.08}s">
+                <span class="rank">${MEDALS[p.rank] || ordinal(p.rank)}</span>
+                <span class="who">${avatar(p)}${esc(p.name)}</span>
+                <span class="pts">${p.score}<small> pts</small></span>
+              </div>`).join('')}
+          </div>
         </div>`;
+      celebrateOnce('scores', () => {
+        confetti({ amount: 220 });
+        confettiFrom(els.stage.querySelector('.winner-hero'), 90);
+        playFanfare();
+        setTimeout(() => confetti({ amount: 140 }), 1300);
+      }, 250);
       controls([{ id: 'again', label: 'Back to lobby', op: 'host/restart', ghost: true }]);
     }
   }

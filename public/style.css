@@ -511,3 +511,71 @@ html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
 .answer-list.lots { grid-template-columns: repeat(3, 1fr); }
 .answer-list.lots .answer-row { font-size: clamp(0.85rem, 1.35vw, 1.3rem); }
 .tv-body:has(.answer-list.many) { gap: 2.2vh; justify-content: flex-start; }
+
+/* ========================================================================
+   CELEBRATIONS
+   ======================================================================== */
+.confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 60; }
+.sound-btn {
+  background: transparent; color: var(--muted); font-size: clamp(0.85rem, 1.2vw, 1.1rem);
+  padding: 0.35rem 0.8rem; box-shadow: inset 0 0 0 1.5px var(--ink-lift); border-radius: 999px;
+}
+.sound-btn.nudge { color: var(--amber); box-shadow: inset 0 0 0 1.5px var(--amber); animation: pulse 1.4s ease-in-out infinite; }
+
+/* Round results: the winner is unmissable */
+.round-banner {
+  text-align: center; font-family: var(--display); font-weight: 800;
+  font-size: clamp(1.4rem, 3.2vw, 2.8rem); color: var(--amber);
+  text-shadow: 0 0 30px rgba(255, 198, 74, 0.35);
+  animation: pop 0.45s cubic-bezier(0.2, 1.5, 0.4, 1) 0.3s backwards;
+}
+.answer-row.round-win {
+  background: linear-gradient(90deg, rgba(255, 198, 74, 0.22), rgba(255, 198, 74, 0.06));
+  box-shadow: inset 0 0 0 3px var(--amber), 0 0 40px rgba(255, 198, 74, 0.25);
+}
+.answer-row.round-win > span:first-child { font-weight: 700; }
+.win-badge {
+  display: inline-block; margin-right: 0.6em; padding: 0.1em 0.55em; border-radius: 999px;
+  background: var(--amber); color: #2a1a00; font-family: var(--display); font-size: 0.55em;
+  letter-spacing: 0.08em; text-transform: uppercase; vertical-align: 0.2em;
+}
+.answer-row .gain { color: var(--mint); font-family: var(--body); font-weight: 700; }
+.answer-row.aud-fav:not(.round-win) { box-shadow: inset 0 0 0 3px var(--mint); }
+
+/* Final scores: one big, legible winner, then the table */
+.final { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: clamp(1.5rem, 4vw, 4rem); align-items: center; }
+@media (max-width: 900px) { .final { grid-template-columns: 1fr; } }
+.winner-hero {
+  text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
+  background: radial-gradient(ellipse at 50% 30%, rgba(255, 198, 74, 0.22), transparent 70%);
+  border-radius: 32px; padding: clamp(1.2rem, 3vw, 2.5rem);
+}
+.winner-hero .eyebrow { font-size: clamp(0.9rem, 1.6vw, 1.3rem); color: var(--amber); }
+.crown { font-size: clamp(3rem, 7vw, 6rem); line-height: 1; animation: crown-drop 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) 0.2s backwards; }
+@keyframes crown-drop { from { opacity: 0; transform: translateY(-60px) rotate(-20deg); } }
+.hero-names { display: flex; flex-direction: column; gap: 0.3rem; }
+.hero-name {
+  font-family: var(--display); font-weight: 800; color: var(--paper); line-height: 1.02;
+  font-size: clamp(2.6rem, 7vw, 6.5rem); display: flex; align-items: center; justify-content: center; gap: 0.25em;
+  word-break: break-word; animation: pop 0.6s cubic-bezier(0.2, 1.5, 0.4, 1) 0.35s backwards;
+}
+.hero-name .av { font-size: 0.45em; margin: 0; }
+.hero-pts { font-family: var(--display); font-size: clamp(1.3rem, 2.6vw, 2.4rem); color: var(--amber); }
+.final-board { max-width: none; }
+.final-board .score-row { animation: slide-in 0.4s ease backwards; }
+.final-board .score-row .who { display: flex; align-items: center; min-width: 0; }
+.final-board .score-row .pts small { font-size: 0.55em; color: var(--muted); font-family: var(--body); }
+.final-board .score-row.is-winner {
+  background: linear-gradient(90deg, rgba(255, 198, 74, 0.25), rgba(255, 198, 74, 0.08));
+  box-shadow: inset 0 0 0 3px var(--amber); font-weight: 700;
+}
+.final-board .score-row:first-child:not(.is-winner) { box-shadow: none; }
+.final-board.tight { gap: 0.5rem; }
+.final-board.tight .score-row { padding: 0.5rem 1.2rem; font-size: clamp(0.95rem, 1.7vw, 1.5rem); }
+.final-board .rank { min-width: 2.2em; text-align: center; }
+
+/* Phone: winner card and big placing */
+.win-card { border-radius: 22px; padding: 1.2rem 1rem; background: radial-gradient(ellipse at 50% 0%, rgba(255, 198, 74, 0.25), transparent 75%); box-shadow: inset 0 0 0 2px rgba(255, 198, 74, 0.6); }
+.win-card .status strong { color: var(--amber); }
+.final-card { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; }
+.place-big { font-family: var(--display); font-weight: 800; font-size: 4.5rem; line-height: 1; color: var(--amber); }

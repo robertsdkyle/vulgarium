@@ -139,6 +139,11 @@ async function toPhase(R, phase) {
   // Over a real network the TV's update can land before Ann's; wait for hers.
   await ann.waitFor((c) => c.me.lastRound && typeof c.me.lastRound.votes === 'number').catch(() => {});
   check('my phone gets my round result', ann.me.lastRound && typeof ann.me.lastRound.votes === 'number');
+  const rAns = R.host.room.answers;
+  const most = Math.max(...rAns.filter((a) => !a.isHouse).map((a) => a.votes.length));
+  check('round winner(s) flagged: the most-voted player answer(s)', rAns.filter((a) => a.winner).every((a) => a.votes.length === most) && rAns.some((a) => a.winner));
+  check('winning answers carry their points', rAns.filter((a) => a.winner).every((a) => a.points === most * 100));
+  check("each phone knows whether it won the round", R.players.every((p) => typeof p.me.lastRound.roundWinner === 'boolean'));
 
   // ---------------------------------------------------------------------
   log('\n[7] Envelope integrity: contiguous seq, monotonic versions');
@@ -271,6 +276,29 @@ async function toPhase(R, phase) {
   await Zero.host.send('host/skip');
   await Zero.host.waitFor((h) => h.room.phase === 'RESULTS');
   check('no answers at all: skips the vote and says so', Zero.host.room.voteSkipped === true && Zero.host.room.answers.length === 0);
+
+  // ---------------------------------------------------------------------
+  log('\n[13] Final standings: ties share first place');
+  // ---------------------------------------------------------------------
+  const T = await setupRoom(['Tia', 'Tod']);
+  await T.host.send('host/personal', { on: false });
+  await T.host.send('host/start');
+  await T.host.waitFor((h) => h.room.phase === 'PICKING');
+  await T.host.send('host/skip');
+  await T.host.waitFor((h) => h.room.phase === 'WRITING');
+  await T.players[0].send('write/answer', { text: 'tia' });
+  await T.players[1].send('write/answer', { text: 'tod' });
+  await T.host.waitFor((h) => h.room.phase === 'VOTING');
+  for (const p of T.players) { await p.waitFor((c) => c.me.choices.length > 0); await p.send('vote/cast', { id: p.me.choices[0].id }); }
+  await T.host.waitFor((h) => h.room.phase === 'RESULTS');
+  check('a tied round has two winners', T.host.room.answers.filter((a) => a.winner).length === 2);
+  for (let i = 0; i < 12 && T.host.room.phase !== 'SCORES'; i++) { await T.host.send('host/skip'); await wait(120); }
+  await T.host.waitFor((h) => h.room.phase === 'SCORES');
+  const st = T.host.room.standings;
+  check('standings list everyone, best first', st.length === 2 && st[0].score >= st[1].score);
+  check('equal scores share rank 1 and both win', st.every((p) => p.rank === 1 && p.winner === true), st.map((p) => p.rank).join(','));
+  await T.players[0].waitFor((c) => c.me.place === 1);
+  check('each phone says 1st and tied', T.players.every((p) => p.me.place === 1 && p.me.tied === true));
 
   done();
 })().catch((e) => { console.error('FAIL  crashed:', e); process.exit(1); });

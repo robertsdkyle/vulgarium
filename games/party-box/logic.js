@@ -81,6 +81,7 @@ function create(ctx) {
     houseOn: HOUSE_ON,
     spareSeeds: [],        // seeds nobody was dealt this round (house answers use them)
     voteSkipped: false,    // the round had no answers to vote on
+    roundWinners: [],      // answer ids that topped this round's vote (ties share)
     personalRounds: new Set(),
     personalUsed: new Set(),
     usedPersonalFrames: new Set(),
@@ -143,6 +144,7 @@ function create(ctx) {
     s.pick = null;
     s.answers = [];
     s.voteSkipped = false;
+    s.roundWinners = [];
     s.audienceVotes = new Map();
     for (const p of s.seats.values()) {
       p.answer = null;
@@ -238,6 +240,10 @@ function create(ctx) {
       const author = a && s.seats.get(a.author);
       if (author) author.score += POINTS_PER_VOTE;
     }
+    const tally = (a) => [...s.seats.values()].filter((v) => v.votedFor === a.id).length;
+    const playerAnswers = s.answers.filter((a) => a.author !== 'house');
+    const best = Math.max(0, ...playerAnswers.map(tally));
+    s.roundWinners = best > 0 ? playerAnswers.filter((a) => tally(a) === best).map((a) => a.id) : [];
     for (const [uid, p] of s.seats) {
       const mine = s.answers.find((a) => a.author === uid);
       const votes = mine ? [...s.seats.values()].filter((v) => v.votedFor === mine.id).length : 0;
@@ -247,6 +253,7 @@ function create(ctx) {
         points: votes * POINTS_PER_VOTE,
         answered: !!p.answer,
         fooled: !!(picked && picked.author === 'house'),
+        roundWinner: !!(mine && s.roundWinners.includes(mine.id)),
         noVote: s.voteSkipped,
       };
     }
@@ -465,6 +472,8 @@ function create(ctx) {
   // --------------------------------------------------------------- views
   function views() {
     const seats = seatList();
+    // Standard competition ranking: equal scores share a place (1, 1, 3…).
+    const rankOf = (score) => 1 + seats.filter((x) => x.p.score > score).length;
     const live = seats.filter((x) => x.m.conn);
     const vip = vipId();
     const pickerName = s.pick ? (member(s.pick.picker) || {}).name || '' : '';
@@ -481,7 +490,10 @@ function create(ctx) {
         }
         const author = member(a.author);
         const voters = seats.filter((x) => x.p.votedFor === a.id).map((x) => x.m.name);
-        return { id: a.id, text: a.text, name: author ? author.name : '(left)', authorId: author ? author.id : null, votes: voters };
+        return {
+          id: a.id, text: a.text, name: author ? author.name : '(left)', authorId: author ? author.id : null,
+          votes: voters, points: voters.length * POINTS_PER_VOTE, winner: s.roundWinners.includes(a.id),
+        };
       });
     }
 
@@ -522,6 +534,13 @@ function create(ctx) {
         ? { pickerId: pickerSeat ? pickerSeat.id : null, pickerName, choices: s.pick.choices }
         : null,
       answers,
+      // Final standings, best first. Everyone tied for the top score is a winner.
+      standings: s.phase === 'SCORES'
+        ? [...seats].sort((a, b) => b.p.score - a.p.score).map(({ m, p }) => ({
+            id: m.id, name: m.name, avatar: AVATARS[p.index % AVATARS.length], score: p.score,
+            rank: rankOf(p.score), winner: rankOf(p.score) === 1,
+          }))
+        : null,
       audienceCount: ctx.audience().filter((m) => m.conn).length,
     };
 
@@ -537,7 +556,6 @@ function create(ctx) {
       houseOn: s.houseOn,
     };
 
-    const ranked = [...seats].sort((a, b) => b.p.score - a.p.score);
     const players = {};
     for (const { m, p } of seats) {
       const isVIP = m.userId === vip;
@@ -569,7 +587,8 @@ function create(ctx) {
         votedFor: p.votedFor,
         myAnswerId: mine ? mine.id : null,
         lastRound: s.phase === 'RESULTS' ? p.lastRound : null,
-        place: s.phase === 'SCORES' ? ranked.findIndex((x) => x.m.userId === m.userId) + 1 : null,
+        place: s.phase === 'SCORES' ? rankOf(p.score) : null,
+        tied: s.phase === 'SCORES' && seats.filter((x) => x.p.score === p.score).length > 1,
       };
     }
 

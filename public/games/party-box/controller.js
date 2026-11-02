@@ -10,6 +10,7 @@
  * game type is "party-box".
  */
 import { esc, promptHTML } from '/js/realtime.js';
+import { confetti, buzz } from '/js/celebrate.js';
 
 let el = null;
 let api = null;
@@ -295,14 +296,30 @@ function results(room, me) {
   if (room.voteSkipped || (lr && lr.noVote)) line = 'Not enough answers to vote on this round.';
   else if (lr && lr.answered) line = lr.votes ? `Your answer got ${lr.votes} vote${lr.votes === 1 ? '' : 's'} · +${lr.points}` : 'No votes for yours this time.';
   else if (lr) line = 'You sat that one out.';
+  const won = !!(lr && lr.roundWinner);
   // Picking a house answer is worth calling out — that's the joke.
   const fooled = lr && lr.fooled ? 'You voted for an answer the box planted. 📦' : '';
-  paint(`results:${room.round}:${line}:${fooled}`, `${status(fooled ? 'Fooled you!' : 'Results are up', line)}${fooled ? `<p class="hint-sm">${fooled}</p>` : ''}`);
+  const title = won ? 'You won the round! 🏆' : fooled ? 'Fooled you!' : 'Results are up';
+  paint(`results:${room.round}:${line}:${fooled}:${won}`,
+    `<div class="${won ? 'win-card' : ''}">${status(title, line)}</div>${fooled ? `<p class="hint-sm">${fooled}</p>` : ''}`,
+    () => { if (won) { confetti({ amount: 90 }); buzz(); } });
 }
 
 function scores(room, me, perm) {
   const ord = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
-  paint(`scores:${me.place}:${me.score}`, status(me.place === 1 ? 'You won!' : `You finished ${ord(me.place)}`, `${me.score} points.`));
+  const first = me.place === 1;
+  const title = first ? (me.tied ? 'You tied for 1st!' : 'You won!') : me.tied ? `Tied for ${ord(me.place)}` : `You finished ${ord(me.place)}`;
+  const champs = (room.standings || []).filter((p) => p.winner).map((p) => p.name);
+  const sub = first
+    ? `${me.score} points. 👑`
+    : `${me.score} points. ${champs.length ? `${esc(champs.join(' & '))} ${champs.length > 1 ? 'tied for the win' : 'won'}.` : ''}`;
+  paint(`scores:${me.place}:${me.score}:${me.tied}`, `
+    <div class="final-card ${first ? 'win-card' : ''}">
+      <p class="place-big">${first ? '👑' : esc(ord(me.place))}</p>
+      ${status(title, '')}
+      <p class="status">${sub}</p>
+    </div>`,
+  () => { if (first) { confetti({ amount: 180 }); buzz([80, 50, 80, 50, 200]); } });
   if (perm.canRestart) foot(`<button class="btn-go btn-xl" id="again">Play again</button>`, () => bindClick('again', (b) => request(b, 'lobby/restart')));
   else foot(`<p class="hint-sm">Waiting for the VIP to start another game.</p>`);
 }
