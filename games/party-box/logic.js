@@ -19,6 +19,7 @@ const { QUESTIONS: SETUP_QUESTIONS, buildPersonal } = require(path.join(ROOT, 'p
 const SEEDS = require(path.join(ROOT, 'seeds'));
 const { GROUP_NAMES, dealPrompt } = require('./dealer');
 const { makeHouseAnswers } = require('./house');
+const { pickPersonalRounds } = require('./schedule');
 
 const env = (k, d) => (process.env[k] !== undefined && process.env[k] !== '' ? Number(process.env[k]) : d);
 
@@ -118,10 +119,9 @@ function create(ctx) {
     s.personalUsed = new Set();
     s.pickedBy = new Set();
     const eligible = connectedSeats().filter((x) => x.p.allowPersonal);
-    if (s.personalOn && eligible.length) {
-      const slots = shuffle(Array.from({ length: ROUNDS }, (_, i) => i + 1));
-      for (const r of slots.slice(0, Math.min(PERSONAL_ROUNDS, eligible.length))) s.personalRounds.add(r);
-    }
+    // How many and which rounds are personal is randomised per game, leaning
+    // away from round 1 — see schedule.js.
+    if (s.personalOn) s.personalRounds = pickPersonalRounds({ rounds: ROUNDS, max: PERSONAL_ROUNDS, eligible: eligible.length });
     startRound();
   }
 

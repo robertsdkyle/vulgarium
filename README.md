@@ -249,6 +249,8 @@ Skipping the question is fine too — those players fall back to name-only frame
 
 ### Tuning
 
-`PERSONAL_ROUNDS` sets how many rounds of a game use one (default 2 of 3; set it to 0 to disable). It's automatically capped by how many people are eligible, so nobody gets named twice in a game while someone else goes unmentioned.
+`PERSONAL_ROUNDS` sets the most rounds of a game that use one (default 2; set it to 0 to disable). Each game picks randomly between 1 and that number, so some games have one and some have two, and it's automatically capped by how many people are eligible, so nobody gets named twice in a game while someone else goes unmentioned.
+
+Which rounds get them is also random but leans late — they land harder once the room is warmed up. With the default weights (`ROUND_WEIGHTS` in `games/party-box/schedule.js`, 1 : 3 : 4 for rounds 1–3) round 1 is personal in about one game in five; round 3 is the most likely. Raise the first number to see them earlier.
 
 Add your own questions in `personal.js`. Each one declares its answer shape — `past`, `doing`, or `thing` — and its frames must match, since a mismatched shape reads as a bug on the TV. Test any new frame against a few real answers before shipping it.

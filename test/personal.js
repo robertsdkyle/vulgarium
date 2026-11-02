@@ -21,12 +21,30 @@ const log = console.log;
 
   const prompts = await playGame(A.host, A.players);
   const named = prompts.filter((p) => /Dana|Mick|Jo/.test(p));
-  check('personal prompts spread across the game', named.length === 2, named.join(' | ') || 'none');
+  check('one or two personal prompts this game', named.length >= 1 && named.length <= 2, named.join(' | ') || 'none');
   check('they landed in different rounds', new Set(named).size === named.length);
   const personal = named[0] || '';
   check('it used their own supplied detail', ['a pizza place', 'competitive yoyo', 'Biscuit'].some((d) => personal.includes(d)), personal);
   check('the personal prompt still has a blank', personal.includes('______'), personal);
   check('capitalised properly', /^[A-Z]/.test(personal), personal.slice(0, 30));
+
+  log('\n[2b] Which rounds are personal is random, and rarely round 1');
+  const { pickPersonalRounds } = require('../games/party-box/schedule');
+  const N = 20000;
+  let r1 = 0, sizes = new Set(), byRound = [0, 0, 0, 0], bad = 0;
+  for (let i = 0; i < N; i++) {
+    const set = pickPersonalRounds({ rounds: 3, max: 2, eligible: 5 });
+    sizes.add(set.size);
+    if (set.size < 1 || set.size > 2) bad++;
+    for (const r of set) byRound[r]++;
+    if (set.has(1)) r1++;
+  }
+  check('always 1 or 2 personal rounds', bad === 0 && sizes.has(1) && sizes.has(2), [...sizes].join(','));
+  check('round 1 is personal in well under half of games', r1 / N < 0.3, (100 * r1 / N).toFixed(1) + '%');
+  check('every round can be personal', byRound.slice(1).every((n) => n > 0), byRound.slice(1).join('/'));
+  check('later rounds are favoured', byRound[3] > byRound[2] && byRound[2] > byRound[1], byRound.slice(1).join('/'));
+  check('capped by eligible players', [...Array(2000)].every(() => pickPersonalRounds({ rounds: 3, max: 2, eligible: 1 }).size === 1));
+  check('nobody eligible -> none', pickPersonalRounds({ rounds: 3, max: 2, eligible: 0 }).size === 0);
 
   log('\n[3] Opting out protects you');
   const B = await setupRoom(['Zoe', 'Pat']);
