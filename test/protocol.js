@@ -136,6 +136,8 @@ async function toPhase(R, phase) {
   check('names revealed at RESULTS', R.host.room.answers.every((a) => typeof a.name === 'string'));
   check('audience votes did not change scores',
     R.host.room.players.reduce((s, p) => s + p.score, 0) === 300, R.host.room.players.map((p) => p.score).join(','));
+  // Over a real network the TV's update can land before Ann's; wait for hers.
+  await ann.waitFor((c) => c.me.lastRound && typeof c.me.lastRound.votes === 'number').catch(() => {});
   check('my phone gets my round result', ann.me.lastRound && typeof ann.me.lastRound.votes === 'number');
 
   // ---------------------------------------------------------------------
@@ -181,11 +183,10 @@ async function toPhase(R, phase) {
   if (R.host.room.phase === 'PICKING') {
     const dis = R.host.room.pick.choices.find((c) => c.disabled);
     check('round 2+ shows an already-played category, disabled', !!dis);
+    await Promise.any(R.players.map((p) => p.waitFor((c) => c.me.permissions.canPick))).catch(() => {});
     const picker = R.players.find((p) => p.me.permissions.canPick);
-    if (dis && picker) {
-      r = await picker.send('pick/choose', { id: dis.id });
-      check('disabled choice refused', r.ok === false && r.error === 'choice-disabled', r.error);
-    }
+    r = dis && picker ? await picker.send('pick/choose', { id: dis.id }) : { ok: null, error: 'no picker/disabled choice' };
+    check('disabled choice refused', r.ok === false && r.error === 'choice-disabled', r.error);
   } else {
     check('round 2 is a picking round', false, R.host.room.phase);
   }
@@ -206,7 +207,9 @@ async function toPhase(R, phase) {
   lk = await lookup(code);
   check('lookup says full', lk.body.full === true && lk.body.joinable === false);
   const eleventh = await connect({ code, name: 'P10' }).then(() => null, (e) => e);
-  check('11th player refused with room-full', eleventh && eleventh.closeCode === 4009 && eleventh.message === 'room-full');
+  check('11th player refused with room-full', eleventh && eleventh.message === 'room-full',
+    eleventh ? `close ${eleventh.closeCode}, error ${eleventh.message}` : 'it was let in');
+  check('…with close code 4009', eleventh && eleventh.closeCode === 4009, eleventh ? eleventh.closeCode : '-');
 
   done();
 })().catch((e) => { console.error('FAIL  crashed:', e); process.exit(1); });

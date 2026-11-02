@@ -99,7 +99,10 @@ export class Realtime {
       for (const [, res] of this.pending) res({ ok: false, error: 'disconnected' });
       this.pending.clear();
       if (this.stopped) return;
-      if (ev.code >= FATAL_MIN) {
+      // A refusal is final whether we see it as a 4000-range close code or
+      // only as the `error` frame before it — some proxies replace close
+      // codes with 1006, and retrying a refusal would loop forever.
+      if (ev.code >= FATAL_MIN || fatal) {
         this.stopped = true;
         this.onStatus('closed');
         this.onFatal(fatal || { code: 'closed-' + ev.code, message: 'Disconnected.' });
