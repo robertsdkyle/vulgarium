@@ -209,7 +209,11 @@ async function toPhase(R, phase) {
   const eleventh = await connect({ code, name: 'P10' }).then(() => null, (e) => e);
   check('11th player refused with room-full', eleventh && eleventh.message === 'room-full',
     eleventh ? `close ${eleventh.closeCode}, error ${eleventh.message}` : 'it was let in');
-  check('…with close code 4009', eleventh && eleventh.closeCode === 4009, eleventh ? eleventh.closeCode : '-');
+  // Locally the close code is 4009. Some hosting proxies (Render's, for one)
+  // replace application close codes with 1006, which is why clients treat the
+  // `error` frame — not the code — as the refusal. Either way it must close.
+  check('…and the connection is closed (4009, or 1006 behind a proxy)', eleventh && [4009, 1006].includes(eleventh.closeCode),
+    eleventh ? eleventh.closeCode : '-');
 
   done();
 })().catch((e) => { console.error('FAIL  crashed:', e); process.exit(1); });
