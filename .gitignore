@@ -1,0 +1,4 @@
+node_modules/
+.used-prompts.json
+.DS_Store
+e2e-shots/
