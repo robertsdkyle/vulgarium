@@ -1,80 +1,65 @@
-// Seed-dealing tests. Run the server first:
-//   T_WRITING=4 T_VOTING=3 T_RESULTS=1 node server.js
-const { io } = require('socket.io-client');
-const URL = 'http://localhost:3000';
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// Seed-dealing tests: private hands, distinct, refreshed each round.
+const { wait, setupRoom, act, makeChecker } = require('./client');
+const { check, done } = makeChecker();
 const log = console.log;
-let pass = 0, fail = 0;
-const check = (label, cond, extra) => {
-  cond ? pass++ : fail++;
-  log(`  ${cond ? 'PASS' : 'FAIL'}  ${label}${!cond && extra ? '  -> ' + extra : ''}`);
-};
+
+// Only the picker acts: anyone else calling act() after the pick lands would
+// submit an answer and lose their hand.
+async function pickNow(R) {
+  await Promise.all(R.players.map((p) => p.waitFor((c) => c.room.phase === 'PICKING')));
+  const picker = R.players.find((p) => p.me.permissions.canPick);
+  await act(picker);
+}
 
 (async () => {
-  let code = null;
-  const host = io(URL);
-  let hostState = null;
-  host.on('state', (s) => { hostState = s; });
-  await new Promise((r) => host.emit('host:create', {}, (res) => { code = res.code; r(); }));
-
-  const names = ['Ann', 'Bo', 'Cy'];
-  const socks = [];
-  const states = {};
-  for (const name of names) {
-    const sk = io(URL);
-    sk._name = name;
-    sk.on('state', (s) => { states[name] = s; });
-    await new Promise((r) => sk.emit('player:join', { code, name }, r));
-    socks.push(sk);
-  }
-  await wait(200);
+  const R = await setupRoom(['Ann', 'Bo', 'Cy']);
+  const [ann] = R.players;
+  await R.host.send('host/personal', { on: false });
 
   log('\n[1] Seeds are dealt during WRITING');
-  host.emit('host:start');
-  await wait(400);
-  check('phase is WRITING', hostState.phase === 'WRITING');
-  const hands = names.map((n) => (states[n] && states[n].you.seeds) || []);
-  check('every player got seeds', hands.every((h) => h.length > 0), JSON.stringify(hands.map(h => h.length)));
-  check('hands are the configured size', hands.every((h) => h.length === 5), JSON.stringify(hands.map(h => h.length)));
+  await R.host.send('host/start');
+  await R.host.waitFor((h) => h.room.phase === 'PICKING');
+  await pickNow(R);
+  await R.host.waitFor((h) => h.room.phase === 'WRITING');
+  await Promise.all(R.players.map((p) => p.waitFor((c) => c.me.seeds.length > 0)));
+  const hands = R.players.map((p) => p.me.seeds);
+  check('every player got seeds', hands.every((h) => h.length > 0), JSON.stringify(hands.map((h) => h.length)));
+  check('hands are the configured size', hands.every((h) => h.length === 5));
   check('seeds are short strings', hands.flat().every((w) => typeof w === 'string' && w.length < 45));
 
   log('\n[2] Hands are PRIVATE');
-  // The host sees the public state — it must contain no seeds anywhere.
-  const hostJson = JSON.stringify(hostState);
   const anySeed = hands.flat()[0];
-  check('host/TV state contains no seed text', !hostJson.includes(anySeed), 'leaked: ' + anySeed);
-  check('public player list carries no seeds', hostState.players.every((p) => p.seeds === undefined));
-  // A player's own state must not contain another player's hand.
-  const annJson = JSON.stringify(states['Ann'].players);
-  check("one player's state has no other player's seeds", !hands[1].some((w) => annJson.includes(w)));
+  check('TV received no seed text', !JSON.stringify(R.host.frames).includes(JSON.stringify(anySeed)), 'leaked: ' + anySeed);
+  check('room entity carries no seeds', !JSON.stringify(R.host.room).includes('seeds'));
+  check("one player's frames hold no other player's seeds", !hands[1].some((w) => JSON.stringify(ann.frames).includes(JSON.stringify(w))));
 
   log('\n[3] No two players share a seed this round');
   const all = hands.flat();
-  check('all dealt seeds are distinct', all.length === new Set(all).size,
-    `${all.length} dealt, ${new Set(all).size} unique`);
+  check('all dealt seeds are distinct', all.length === new Set(all).size, `${all.length} dealt, ${new Set(all).size} unique`);
 
   log('\n[4] Seeds refresh each round');
-  const round1 = new Set(states['Ann'].you.seeds);
-  for (const sk of socks) sk.emit('player:answer', { text: sk._name + ' r1' });
-  await wait(300);
-  for (const sk of socks) {
-    const st = states[sk._name];
-    const other = st.answers.filter((a) => a.pid !== st.you.pid)[0];
-    if (other) sk.emit('player:vote', { targetId: other.pid });
-  }
-  await wait(2000); // through RESULTS into round 2
-  check('now in round 2', hostState.round === 2, 'round=' + hostState.round);
-  const round2 = states['Ann'].you.seeds || [];
+  const round1 = new Set(ann.me.seeds);
+  for (const p of R.players) await p.send('write/answer', { text: p.welcome.name + ' r1' });
+  await R.host.waitFor((h) => h.room.phase === 'VOTING');
+  await Promise.all(R.players.map((p) => p.waitFor((c) => c.me.choices.length > 0)));
+  for (const p of R.players) await act(p);
+  await R.host.waitFor((h) => h.room.round === 2 && h.room.phase === 'PICKING', 6000);
+  await pickNow(R);
+  await R.host.waitFor((h) => h.room.phase === 'WRITING');
+  await ann.waitFor((c) => c.me.seeds.length > 0);
+  const round2 = ann.me.seeds;
   check('got a fresh hand in round 2', round2.length === 5);
   const overlap = round2.filter((w) => round1.has(w));
   check('round 2 hand differs from round 1', overlap.length < 5, `overlap=${overlap.length}`);
 
-  log('\n[5] Seeds are absent outside the writing phase');
-  for (const sk of socks) sk.emit('player:answer', { text: sk._name + ' r2' });
-  await wait(400);
-  check('phase is VOTING', hostState.phase === 'VOTING');
-  check('no seeds sent while voting', (states['Ann'].you.seeds || []).length === 0);
+  log('\n[5] Seeds are absent once you have answered, and while voting');
+  await ann.send('write/answer', { text: 'done' });
+  await ann.waitFor((c) => c.me.answer === 'done');
+  check('no seeds after answering', ann.me.seeds.length === 0);
+  for (const p of R.players.slice(1)) await p.send('write/answer', { text: 'x' });
+  await R.host.waitFor((h) => h.room.phase === 'VOTING');
+  await wait(100);
+  check('no seeds while voting', R.players.every((p) => p.me.seeds.length === 0));
 
-  log(`\n${pass} passed, ${fail} failed\n`);
-  process.exit(fail ? 1 : 0);
-})();
+  done();
+})().catch((e) => { console.error('FAIL  crashed:', e); process.exit(1); });

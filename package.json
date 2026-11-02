@@ -6,15 +6,13 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "test": "node run-tests.js"
+    "test": "node run-tests.js",
+    "test:e2e": "node test/e2e-browser.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "qrcode": "^1.5.4",
-    "socket.io": "^4.7.5"
-  },
-  "devDependencies": {
-    "socket.io-client": "^4.7.5"
+    "ws": "^8.22.1"
   },
   "engines": {
     "node": ">=18"

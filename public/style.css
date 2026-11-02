@@ -329,7 +329,7 @@ input.code-input {
   line-height: 1.2;
   text-align: left;
 }
-.seed:hover { color: var(--paper); box-shadow: inset 0 0 0 1.5px var(--amber); }
+@media (hover: hover) { .seed:hover { color: var(--paper); box-shadow: inset 0 0 0 1.5px var(--amber); } }
 .seed.used { color: var(--amber); box-shadow: inset 0 0 0 1.5px var(--amber); }
 
 .hint-sm { font-size: 0.8rem; color: var(--muted); text-align: center; }
@@ -351,7 +351,7 @@ input.code-input {
   line-height: 1.35;
   box-shadow: inset 0 0 0 2px transparent;
 }
-.btn-vote:hover:not(:disabled) { box-shadow: inset 0 0 0 2px var(--coral); }
+@media (hover: hover) { .btn-vote:hover:not(:disabled) { box-shadow: inset 0 0 0 2px var(--coral); } }
 .vote-list { display: grid; gap: 0.7rem; }
 
 .phone .prompt-text { font-family: var(--display); font-size: 1.5rem; line-height: 1.15; }
@@ -405,3 +405,95 @@ input.code-input {
 }
 .stem-field input:focus { border: none; outline: none; }
 .hint-sm { font-size: 0.82rem; color: var(--muted); line-height: 1.45; }
+
+/* ========================================================================
+   APP-LIKE PHONE
+   No pinch/double-tap zoom, no accidental text selection on controls,
+   safe-area padding for notched phones, and tap targets at least 56px tall.
+   ======================================================================== */
+html { -webkit-text-size-adjust: 100%; touch-action: manipulation; }
+.phone-page { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+.phone-page button { -webkit-user-select: none; user-select: none; min-height: 56px; touch-action: manipulation; }
+.phone-page .seed { min-height: 40px; }
+.phone-page .btn-link { min-height: 44px; }
+.phone { padding-top: max(1.6rem, env(safe-area-inset-top)); padding-bottom: max(2rem, env(safe-area-inset-bottom)); }
+.phone-body .stack { display: flex; flex-direction: column; gap: 1.1rem; }
+#pb-foot:empty, #pb-err:empty { display: none; }
+.btn-xl { font-size: 1.3rem; padding: 1.25rem; font-family: var(--display); letter-spacing: 0.02em; }
+.btn-link { background: transparent; color: var(--muted); text-decoration: underline; font-weight: 500; }
+.btn-row { display: grid; grid-template-columns: 1fr auto; gap: 0.6rem; }
+.btn-auto {
+  background: transparent;
+  color: var(--amber);
+  box-shadow: inset 0 0 0 2px rgba(255, 198, 74, 0.45);
+  padding: 0 1rem;
+  font-size: 0.95rem;
+  max-width: 9.5rem;
+  line-height: 1.2;
+}
+.btn-choice {
+  background: var(--ink-lift);
+  color: var(--paper);
+  font-family: var(--display);
+  font-size: 1.25rem;
+  padding: 1.1rem 1.2rem;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: inset 0 0 0 2px rgba(255, 198, 74, 0.25);
+}
+.btn-choice:disabled { opacity: 0.35; text-decoration: line-through; }
+.btn-choice .tag, .tag { font-family: var(--body); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); text-decoration: none; }
+.btn-vote.picked { box-shadow: inset 0 0 0 2px var(--mint); opacity: 1; }
+.ph-lab.mine { text-align: center; color: var(--paper); font-style: italic; }
+.hint-sm.vip { color: var(--amber); text-align: center; }
+
+/* Room lookup line under the code box */
+.lookup { min-height: 1.4em; font-size: 0.95rem; color: var(--muted); text-align: center; }
+.lookup b { color: var(--paper); font-family: var(--display); }
+.lookup.ok { color: var(--mint); }
+.lookup.warn { color: var(--amber); }
+.lookup.bad { color: var(--coral); }
+
+/* One-tap reconnect */
+.card { background: var(--ink-lift); border-radius: 22px; padding: 1.6rem 1.3rem; display: flex; flex-direction: column; gap: 0.9rem; text-align: center; }
+.big-name { font-family: var(--display); font-weight: 800; font-size: 2.4rem; color: var(--amber); line-height: 1.05; word-break: break-word; }
+
+/* Avatars: colour + shape */
+.av {
+  display: inline-grid; place-items: center;
+  width: 1.5em; height: 1.5em; border-radius: 50%;
+  background: color-mix(in srgb, var(--av) 22%, transparent);
+  color: var(--av); font-size: 0.85em; margin-right: 0.45em; vertical-align: middle;
+  box-shadow: inset 0 0 0 1.5px var(--av);
+}
+.phone-head .me { display: flex; align-items: center; }
+
+/* ========================================================================
+   TV additions
+   ======================================================================== */
+.tv-body.settled *, .tv-body.settled *::before { animation: none !important; }
+.chip.gone { opacity: 0.45; box-shadow: inset 0 0 0 2px var(--coral); }
+.chip .gone-note { font-size: 0.65em; color: var(--coral); font-weight: 500; }
+.chip .vip { font-size: 0.6em; letter-spacing: 0.12em; color: var(--amber); border: 1.5px solid var(--amber); border-radius: 6px; padding: 0.05em 0.35em; }
+.chip .av { margin-right: 0; }
+.chip:has(.av)::before { display: none; }
+.aud-count { color: var(--muted); font-weight: 600; font-size: clamp(0.85rem, 1.2vw, 1.1rem); }
+.answer-row .aud { color: var(--amber); font-size: 0.7em; white-space: nowrap; }
+.answer-row.aud-fav { box-shadow: inset 0 0 0 3px var(--amber); }
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.choice {
+  background: var(--ink-lift); border-radius: 18px; padding: 1.4rem; text-align: center;
+  font-family: var(--display); font-size: clamp(1.2rem, 2.4vw, 2rem);
+  display: flex; flex-direction: column; gap: 0.3rem;
+  animation: pop 0.35s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
+}
+.choice.disabled { opacity: 0.35; text-decoration: line-through; }
+.choice small { font-family: var(--body); font-size: 0.45em; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); text-decoration: none; }
+.winner { text-align: center; font-size: clamp(2rem, 6vw, 5rem); }
+/* `hidden` must win over component display rules (.timer is display:grid). */
+[hidden] { display: none !important; }
+.phone-head .me { gap: 0.45rem; }
+.phone-head .me .av { margin-right: 0; }
